@@ -1,6 +1,7 @@
 const MIN_POLL_DELAY_MS = 1100;
 const MAX_ACTIVE_POLL_DELAY_MS = 4000;
 const MAX_ERROR_DELAY_MS = 8000;
+const SOCKET_POLL_DELAY_MS = 30_000;
 
 export interface PollIteration {
   pollAfterMs?: number;
@@ -23,6 +24,7 @@ export class AdaptivePoller {
   private inFlight = false;
   private kickPending = false;
   private running = false;
+  private socketActive = false;
   private timeoutId: number | null = null;
 
   public constructor(
@@ -37,11 +39,18 @@ export class AdaptivePoller {
     }
     this.running = true;
     this.consecutiveFailures = 0;
-    this.schedule(immediate ? 0 : MIN_POLL_DELAY_MS);
+    this.schedule(
+      immediate
+        ? 0
+        : this.socketActive
+          ? SOCKET_POLL_DELAY_MS
+          : MIN_POLL_DELAY_MS,
+    );
   }
 
   public stop(): void {
     this.running = false;
+    this.socketActive = false;
     this.kickPending = false;
     if (this.timeoutId !== null) {
       window.clearTimeout(this.timeoutId);
@@ -65,6 +74,25 @@ export class AdaptivePoller {
       this.timeoutId = null;
     }
     this.schedule(0);
+  }
+
+  /**
+   * Keep a slow safety poll while the relay socket is connected. A lost
+   * socket immediately returns to the normal adaptive polling cadence.
+   */
+  public setSocketActive(active: boolean): void {
+    if (this.socketActive === active) {
+      return;
+    }
+    this.socketActive = active;
+    if (!this.running || this.inFlight) {
+      return;
+    }
+    if (this.timeoutId !== null) {
+      window.clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+    this.schedule(active ? SOCKET_POLL_DELAY_MS : 0);
   }
 
   public isRunning(): boolean {
@@ -124,6 +152,9 @@ export class AdaptivePoller {
   }
 
   private successDelay(requestedDelay?: number): number {
+    if (this.socketActive) {
+      return SOCKET_POLL_DELAY_MS;
+    }
     if (document.visibilityState === 'hidden') {
       return MAX_ACTIVE_POLL_DELAY_MS;
     }

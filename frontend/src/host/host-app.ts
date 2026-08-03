@@ -45,6 +45,10 @@ import type {
 } from '../live/types';
 import {retryHostMutation} from './conflict-retry';
 import {StageModeController} from '../live/stage-mode';
+import {
+  RelaySocket,
+  type RelayConnection,
+} from '../live/relay-socket';
 
 const ACTIVE_PHASES = new Set([
   'lobby',
@@ -55,6 +59,10 @@ const ACTIVE_PHASES = new Set([
 ]);
 
 const CONFETTI_COLORS = ['a', 'b', 'c', 'd', 'e'] as const;
+
+interface HostBootstrapResult extends HostStateResult {
+  relay?: RelayConnection | null;
+}
 
 interface BrainstormEditorGroup {
   ideas: Array<{id: string; text: string}>;
@@ -71,6 +79,8 @@ interface BrainstormGrouping {
 export class HostApp {
   private readonly api: LiveApi;
   private readonly poller: AdaptivePoller;
+  private relaySocket: RelaySocket | null = null;
+  private destroyed = false;
 
   /**
    * F11a: exists only while a question is on screen AND the AI addon shipped a
@@ -114,6 +124,7 @@ export class HostApp {
   }
 
   public async init(): Promise<void> {
+    this.destroyed = false;
     this.root.classList.add('quizgeist-host-root');
     this.root.dataset.quizgeistRoot = 'host';
     this.root.dataset.quizgeistTheme = this.config.theme || 'hell';
@@ -153,6 +164,7 @@ export class HostApp {
   }
 
   public destroy(): void {
+    this.destroyed = true;
     this.stageMode?.detach();
     void this.stageMode?.leave();
     if (this.abortDialog) {
@@ -170,6 +182,7 @@ export class HostApp {
     this.destroyCardScan();
     this.sound.destroy();
     this.tts.stop();
+    this.stopRelay();
   }
 
   private readonly unlockSound = (): void => {
@@ -256,11 +269,12 @@ export class HostApp {
     this.renderLoading();
     const sessionId = useStoredSession ? this.storedSessionId() : null;
     try {
-      const result = await this.api.post<HostStateResult>(
+      const result = await this.api.post<HostBootstrapResult>(
         'live_host_bootstrap',
         sessionId ? {sessionId} : {},
         this.bootstrapController.signal,
       );
+      this.configureRelay(result.relay);
       this.setup = result.setup || {};
       this.readiness = result.readiness || null;
       if (result.state) {
@@ -290,6 +304,53 @@ export class HostApp {
     }
   }
 
+  private configureRelay(connection: RelayConnection | null | undefined): void {
+    this.stopRelay();
+    if (!connection
+        || typeof connection.url !== 'string'
+        || connection.url === ''
+        || typeof connection.channel !== 'string'
+        || connection.channel === '') {
+      return;
+    }
+    this.relaySocket = new RelaySocket({
+      connection,
+      onStateVersion: (stateVersion) => {
+        if (this.state && stateVersion > this.state.stateVersion) {
+          this.poller.kick();
+        }
+      },
+      onStatus: (connected) => this.poller.setSocketActive(connected),
+    });
+    this.relaySocket.start();
+  }
+
+  private stopRelay(): void {
+    this.relaySocket?.stop();
+    this.relaySocket = null;
+    this.poller.setSocketActive(false);
+  }
+
+  /**
+   * Create/join responses contain state only. Re-read bootstrap in the
+   * background so the relay DTO remains sourced exclusively by bootstrap.
+   */
+  private async refreshRelay(sessionId: number): Promise<void> {
+    try {
+      const result = await this.api.post<HostBootstrapResult>(
+        'live_host_bootstrap',
+        {sessionId},
+      );
+      if (!this.destroyed
+          && this.state?.sessionId === sessionId
+          && ACTIVE_PHASES.has(this.state.phase)) {
+        this.configureRelay(result.relay);
+      }
+    } catch (_error) {
+      // Polling is the fallback when relay bootstrap is unavailable.
+    }
+  }
+
   private async poll(signal: AbortSignal): Promise<PollIteration> {
     const state = this.state;
     if (!state || !ACTIVE_PHASES.has(state.phase)) {
@@ -305,6 +366,9 @@ export class HostApp {
       },
       signal,
     );
+    if (!this.state || this.state.sessionId !== state.sessionId) {
+      return {};
+    }
     this.updateClock(result.serverTimeMs);
     if (result.changed && result.state) {
       this.applyState(result.state);
@@ -392,6 +456,7 @@ export class HostApp {
     this.state = state;
     if (state.phase === 'ended' || state.phase === 'aborted') {
       this.clearStoredSession();
+      this.stopRelay();
     } else {
       this.storeSession(state.sessionId);
     }
@@ -621,6 +686,7 @@ export class HostApp {
   }
 
   private renderSetup(): void {
+    this.stopRelay();
     this.setTabsVisible(true);
     void this.stageMode?.leave();
     if (!this.stage) {
@@ -1071,6 +1137,7 @@ export class HostApp {
         );
       }
       this.applyState(result.state, true);
+      void this.refreshRelay(result.state.sessionId);
     } catch (error) {
       if (this.isAuthenticationError(error)) {
         this.renderFatalConnection(error);
@@ -1734,6 +1801,7 @@ export class HostApp {
   }
 
   private renderBootstrapError(error: unknown): void {
+    this.stopRelay();
     this.setTabsVisible(true);
     void this.stageMode?.leave();
     if (!this.stage) {
@@ -1766,6 +1834,7 @@ export class HostApp {
   }
 
   private renderFatalConnection(error: unknown): void {
+    this.stopRelay();
     this.setTabsVisible(true);
     void this.stageMode?.leave();
     if (!this.stage) {

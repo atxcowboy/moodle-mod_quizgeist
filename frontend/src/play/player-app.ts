@@ -15,6 +15,10 @@ import type {UploadedClip} from '../live/recorder';
 import {createSoundControls, SoundEngine} from '../live/sound-engine';
 import {liveString, type StringValues} from '../live/strings';
 import {StageModeController, type StageMode} from '../live/stage-mode';
+import {
+  RelaySocket,
+  type RelayConnection,
+} from '../live/relay-socket';
 import {createTtsControl, TtsPlayer} from '../live/tts';
 import type {
   HostConfig,
@@ -79,6 +83,7 @@ interface PlayerState extends LiveStressFree {
 }
 
 interface StateResult {
+  relay?: RelayConnection | null;
   state: PlayerState | null;
 }
 
@@ -199,6 +204,7 @@ export class PlayerApp {
   private joinCode = '';
   private readonly liveRegion: HTMLDivElement;
   private readonly poller: AdaptivePoller;
+  private relaySocket: RelaySocket | null = null;
   private requestedQuestionDelivery = '';
   private answerDraft: LiveAnswer | null = null;
   private lastCountdownSecond: number | null = null;
@@ -281,9 +287,11 @@ export class PlayerApp {
         'live_player_bootstrap',
         sessionId ? {sessionId} : {},
       );
+      this.configureRelay(result.relay);
       if (result.state) {
         if (this.isTerminalPhase(result.state.phase)) {
           this.clearStoredSession();
+          this.stopRelay();
           if (this.config.initialJoinCode) {
             this.currentState = null;
             await this.lookup(this.config.initialJoinCode);
@@ -313,6 +321,53 @@ export class PlayerApp {
       this.handleActionError(error, () => {
         void this.init();
       });
+    }
+  }
+
+  private configureRelay(connection: RelayConnection | null | undefined): void {
+    this.stopRelay();
+    if (!connection
+        || typeof connection.url !== 'string'
+        || connection.url === ''
+        || typeof connection.channel !== 'string'
+        || connection.channel === '') {
+      return;
+    }
+    this.relaySocket = new RelaySocket({
+      connection,
+      onStateVersion: (stateVersion) => {
+        if (this.currentState
+            && stateVersion > this.currentState.stateVersion) {
+          this.poller.kick();
+        }
+      },
+      onStatus: (connected) => this.poller.setSocketActive(connected),
+    });
+    this.relaySocket.start();
+  }
+
+  private stopRelay(): void {
+    this.relaySocket?.stop();
+    this.relaySocket = null;
+    this.poller.setSocketActive(false);
+  }
+
+  /**
+   * Join/resume responses contain state only. Re-read bootstrap in the
+   * background so the relay DTO remains sourced exclusively by bootstrap.
+   */
+  private async refreshRelay(sessionId: number): Promise<void> {
+    try {
+      const result = await this.api.post<StateResult>(
+        'live_player_bootstrap',
+        {sessionId},
+      );
+      if (this.currentState?.sessionId === sessionId
+          && !this.isTerminalPhase(this.currentState.phase)) {
+        this.configureRelay(result.relay);
+      }
+    } catch (_error) {
+      // Polling is the fallback when relay bootstrap is unavailable.
     }
   }
 
@@ -357,6 +412,7 @@ export class PlayerApp {
   }
 
   private renderJoin(message = ''): void {
+    this.stopRelay();
     this.stopClock();
     this.setRootState('join', null);
     const card = element('section', 'quizgeist-player-card quizgeist-player-join');
@@ -455,6 +511,7 @@ export class PlayerApp {
         // gescannt): direkt zurück ins Spiel, ohne Namens-/Avatarauswahl.
         this.storeSession(result.resume.sessionId);
         this.applyState(result.resume, true);
+        void this.refreshRelay(result.resume.sessionId);
         return;
       }
       this.currentLookup = result.state;
@@ -680,6 +737,7 @@ export class PlayerApp {
       }
       this.storeSession(result.state.sessionId);
       this.applyState(result.state, true);
+      void this.refreshRelay(result.state.sessionId);
     } catch (error) {
       if (this.isAuthenticationError(error)) {
         this.renderExpiredSession();
@@ -695,15 +753,19 @@ export class PlayerApp {
   }
 
   private async poll(signal: AbortSignal): Promise<PollIteration> {
-    if (!this.currentState) {
+    const state = this.currentState;
+    if (!state) {
       return {pollAfterMs: 1800};
     }
     const result = await this.api.post<PlayerPollResult>('live_player_poll', {
-      knownAggregateRevision: this.currentState.aggregateRevision || 0,
-      knownQuestionToken: this.currentState.question?.questionToken || '',
-      knownStateVersion: this.currentState.stateVersion,
-      sessionId: this.currentState.sessionId,
+      knownAggregateRevision: state.aggregateRevision || 0,
+      knownQuestionToken: state.question?.questionToken || '',
+      knownStateVersion: state.stateVersion,
+      sessionId: state.sessionId,
     }, signal);
+    if (!this.currentState || this.currentState.sessionId !== state.sessionId) {
+      return {};
+    }
     this.serverClockOffsetMs = result.serverTimeMs - Date.now();
     if (result.changed && result.state) {
       this.applyState(result.state);
@@ -810,6 +872,7 @@ export class PlayerApp {
     }
     if (state.phase === 'ended' || state.phase === 'aborted') {
       this.clearStoredSession();
+      this.stopRelay();
       this.poller.stop();
     } else if (!this.poller.isRunning()) {
       this.poller.start(false);
@@ -1638,6 +1701,7 @@ export class PlayerApp {
   }
 
   private renderFatal(message: string, actionLabel: string, action: () => void): void {
+    this.stopRelay();
     this.poller.stop();
     this.stopClock();
     const card = element('section', 'quizgeist-player-card quizgeist-player-fatal');

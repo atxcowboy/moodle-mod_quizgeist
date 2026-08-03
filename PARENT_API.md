@@ -1,20 +1,29 @@
 # PARENT_API — die Lese-Schnittstelle von mod_quizgeist
 
-Gilt ab `mod_quizgeist` 1.2.
+Gilt ab `mod_quizgeist` 1.1.
 
-Diese Datei ist der **Vertrag** für Parent-, Tutor- und Beratungsdashboards.
-Die Daten werden über diese Methode aggregiert; ein Dashboard muss keine
-Quizgeist-Tabellen lesen.
+Diese Datei ist der **Vertrag**. Wer sie liest, kann eine Eltern-, Tutoren-
+oder Beratungsoberfläche bauen, ohne in die Quizgeist-Tabellen zu greifen und
+ohne eine Abhängigkeit zu erklären.
 
 ---
 
 ## Warum eine Lese-API und keine Lieferung
 
-Die Schnittstelle folgt einem einfachen **Pull**-Muster: Ein Parent- oder
-Tutor-Dashboard fragt den Digest für eine Nutzer-ID ab, und Quizgeist ruft
-kein Dashboard zurück. Die API ist unabhängig von einer bestimmten
-Dashboard-Implementierung. Fehlt das Plugin oder die Klasse, kann das
-Dashboard ohne Quizgeist weiterarbeiten; die zugehörige Kachel bleibt leer.
+`local_elternkompass` besitzt **keine** Lieferschnittstelle für Fremdplugins:
+kein Callback, kein Hook, kein Interface; `lib.php` enthält null Funktionen,
+`db/hooks.php` registriert nur `primary_extend` in die Gegenrichtung. Sein
+faktisches Muster ist **Pull** — `local_elternkompass\local\dashboard_service`
+liest fremde Tabellen selbst, und andere Plugins konsumieren umgekehrt den
+`dashboard_service`.
+
+Deshalb liefert mod_quizgeist nichts aus, sondern **stellt bereit**. Damit gilt
+in beide Richtungen:
+
+- mod_quizgeist hat **keine** `$plugin->dependencies` auf Elternkompass und
+  erwähnt ihn in `version.php` mit keinem Wort.
+- Elternkompass funktioniert ohne Quizgeist unverändert; die Kachel verschwindet
+  einfach.
 
 ---
 
@@ -76,7 +85,7 @@ also keine zweite Codebahn für „noch nichts da".
 $digest = null;
 if (class_exists('\\mod_quizgeist\\local\\parent\\digest')) {
     // Die eigene Berechtigungsprüfung ist hier bereits erfolgt.
-    $digest = \mod_quizgeist\local\parent\digest::for_user($userid);
+    $digest = \mod_quizgeist\local\parent\digest::for_user($childid);
 }
 if ($digest !== null && $digest['hasData']) {
     // Kachel zeichnen.
@@ -99,8 +108,8 @@ Moodle-Autoloader die Klasse findet, sobald das Plugin installiert ist.
    „hat noch nicht geübt" und „hier ist etwas kaputt" ununterscheidbar, deshalb
    nennt ein interner Fehler im Entwicklermodus seinen Grund.
 4. **Kein Gate auf Lesen.** `for_user()` ist **nicht** lizenzgesteuert: Es liest
-   nur. Ein fehlendes oder abgelaufenes Entitlement sperrt Neuanlagen, niemals
-   den Blick auf bereits gespeicherte Lernstände.
+   nur. Eine abgelaufene Lizenz sperrt Neuanlagen, niemals den Blick auf bereits
+   Gelerntes (LIZENZ_VERTRAG.md, Datengeiselverbot).
 5. **`competences` ist die einzige Ausnahme** und zwar nach oben, nicht nach
    unten: ohne installiertes `reports`-Addon bleibt die Liste leer, alle anderen
    Kennzahlen liefern trotzdem.
@@ -116,5 +125,5 @@ Moodle-Autoloader die Klasse findet, sobald das Plugin installiert ist.
 - Sie kennt weder Eltern noch Rollen noch Kurskontexte einer Oberfläche.
 - Sie liefert keine Antworttexte, keine Fragen, keine Namen, keine
   Sitzungs-Kennungen — nur Aggregate.
-- Sie ruft kein Eltern-Dashboard auf. Die Richtung ist immer: Oberfläche fragt,
-  Quizgeist antwortet.
+- Sie ruft `local_elternkompass` nicht auf. Die Richtung ist immer: Oberfläche
+  fragt, Quizgeist antwortet.

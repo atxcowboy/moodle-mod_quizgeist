@@ -10,7 +10,7 @@ complete for the core loop **author → host a live round → review results**.
 There are no participant limits, no question limits, no time limits, no
 watermarks and no online activation.
 
-- **Version:** 1.2.0-rc.1
+- **Version:** 1.2.0-rc.2
 - **Requires:** Moodle 5.2 (`2026042000`) or newer
 - **Languages:** English and German, 1618 strings each
 
@@ -86,10 +86,43 @@ or scan the QR code — enter the code, pick a display name, and wait in the lob
 The host advances the round; every device follows.
 
 State lives in Moodle. Every client asks the server for it, and the server
-decides what each participant may see; answers are scored server-side. The
-current release carries this over HTTP polling, with an adaptive interval that
-backs off while a tab is hidden. A load test with 27 simultaneous players
-measured a median server response of 21 ms with no failures.
+decides what each participant may see; answers are scored server-side.
+
+## Live transport: polling or WebSocket
+
+By default that state travels over HTTP polling, with an adaptive interval that
+backs off while a tab is hidden. It works everywhere, needs nothing installed,
+and costs a few hundred milliseconds before a learner's device catches up. A
+load test with 27 simultaneous players measured a median server response of
+21 ms with no failures.
+
+Sites that can run a small background service may switch to the optional
+**signal relay** instead. Under **Site administration → Plugins → Activities →
+Quizgeist**, set *Live transport* to *WebSocket*. Measured on our system, the
+delay between a teacher acting and a learner's screen following dropped from
+**436 ms to 76 ms**, and the steady background request load disappeared.
+
+The relay carries **no game content**. Per session it carries exactly one
+number, the state counter. The browser learns that something changed and then
+fetches it over the normal, Moodle-authorised path — so enrolments,
+capabilities, groups and visibility are still decided in exactly one place.
+
+Two consequences worth knowing:
+
+- **If the relay stops, nobody plays worse.** The round continues over the
+  normal polling cycle. That is not a claim but a test: with the relay service
+  stopped mid-acceptance, every transition still arrived, just slower.
+- **A compromised relay reveals nothing.** It holds opaque channel keys and
+  integers. The worst it enables is making browsers poll one extra time, and
+  that poll re-checks everything in Moodle.
+
+Polling remains the default, so an existing installation does not change
+behaviour when it upgrades. Selecting *WebSocket* without a configured relay
+URL simply behaves like polling and says so on the settings page.
+
+The relay service, its systemd unit and web-server configuration for
+OpenLiteSpeed, nginx and Apache are documented at
+[support.panomity.com](https://support.panomity.com/) under Quizgeist.
 
 ## Privacy and data protection
 
@@ -185,9 +218,18 @@ installieren** hochladen, oder nach `mod/quizgeist` entpacken und
 **Website-Administration → Mitteilungen** öffnen.
 
 **Live-Betrieb:** Der Zustand liegt in Moodle; der Server entscheidet, wer was
-sieht, und wertet die Antworten. Die Übertragung läuft derzeit über
+sieht, und wertet die Antworten. Die Übertragung läuft in der Vorgabe über
 HTTP-Abrufe mit angepasstem Takt. Ein Lasttest mit 27 gleichzeitig Spielenden
-ergab 21 ms im Median, keine Fehler.
+ergab 21 ms Serverantwort im Median, keine Fehler.
+
+**Wahlweise WebSockets:** Wer einen kleinen Hintergrunddienst betreiben kann,
+stellt unter *Website-Administration → Plugins → Aktivitäten → Quizgeist* die
+Übertragung auf *WebSocket* um. Gemessen sank die Verzögerung zwischen
+Lehrkraftaktion und Schülerbildschirm von **436 ms auf 76 ms**. Der Dienst
+überträgt keine Spielinhalte, sondern je Sitzung nur den Zustandszähler —
+Moodle bleibt die einzige Stelle, die über Sichtbarkeit entscheidet. Fällt der
+Dienst aus, läuft die Runde über den Abrufzyklus unverändert weiter; das ist
+Teil der Abnahme und nicht bloß eine Zusage. Vorgabe bleibt *Abruf*.
 
 **Datenschutz:** keine Telemetrie, keine Aktivierungsanfragen, keine externen
 CDNs. Personenbezogene Daten sind über Moodles Privacy-API deklariert.

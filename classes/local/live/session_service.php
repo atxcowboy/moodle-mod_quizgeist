@@ -59,6 +59,9 @@ final class session_service {
         $creatablemodes = session_settings::creatable_modes($configuredmode);
         return [
             'state' => $state,
+            'relay' => $sessionid !== null
+                ? relay::bootstrap_for((int)$session->id)
+                : null,
             'readiness' => self::readiness((int)$quizgeist->id),
             'setup' => [
                 'allowedModes' => $creatablemodes,
@@ -505,6 +508,7 @@ final class session_service {
             $DB->update_record('quizgeist_sessions', $update);
             $session = (object)array_merge((array)$session, (array)$update);
             $transaction->allow_commit();
+            self::notify_state_change($session);
         } catch (\Throwable $exception) {
             $transaction->rollback($exception);
         }
@@ -537,7 +541,7 @@ final class session_service {
         ?int $sessionid
     ): array {
         if ($sessionid === null) {
-            return ['state' => null];
+            return ['state' => null, 'relay' => null];
         }
         try {
             $session = session_repository::session((int)$quizgeist->id, $sessionid);
@@ -546,13 +550,16 @@ final class session_service {
                 (int)$user->id
             );
         } catch (\dml_missing_record_exception $missing) {
-            return ['state' => null];
+            return ['state' => null, 'relay' => null];
         }
-        return ['state' => state_projector::player_state(
-            $session,
-            $context,
-            $player
-        )];
+        return [
+            'state' => state_projector::player_state(
+                $session,
+                $context,
+                $player
+            ),
+            'relay' => relay::bootstrap_for((int)$session->id),
+        ];
     }
 
     /**
@@ -765,6 +772,9 @@ final class session_service {
                 $session = (object)array_merge((array)$session, (array)$update);
             }
             $transaction->allow_commit();
+            if ($visiblechanged) {
+                self::notify_state_change($session);
+            }
         } catch (\Throwable $exception) {
             $transaction->rollback($exception);
         }
@@ -1161,10 +1171,20 @@ final class session_service {
             $DB->update_record('quizgeist_sessions', $update);
             $session = (object)array_merge((array)$session, (array)$update);
             $transaction->allow_commit();
+            self::notify_state_change($session);
         } catch (\Throwable $exception) {
             $transaction->rollback($exception);
         }
         return ['state' => state_projector::host_state($session, $context)];
+    }
+
+    /**
+     * Notify the relay after a live state update has been allowed to commit.
+     *
+     * @param \stdClass $session Updated session row.
+     */
+    private static function notify_state_change(\stdClass $session): void {
+        relay::notify((int)$session->id, (int)$session->stateversion);
     }
 
     /**

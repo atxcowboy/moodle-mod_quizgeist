@@ -1,17 +1,17 @@
 # Quizgeist
 
-Quizgeist is a Moodle activity for classroom quizzes. Version 1.2 provides a
-base plugin and six optional Moodle subplugins. The base covers authoring,
-live play and review without a licence file, participant or question limits,
-watermarks, or online activation.
+Quizgeist is a Moodle activity for lively classroom quizzes. Version 1.1 ships
+as a genuinely useful free base plugin plus five optional Moodle subplugins.
+The base covers the complete author → play live → review loop without a licence
+file, participant or question limits, watermarks, or online activation.
 
 ## Highlights
 
-- Classic live sessions with a local join code, QR code, host display,
+- Free classic live sessions with a local join code, QR code, host display,
   reconnect, scoreboard and podium.
-- Six question and content types: multiple choice, true/false, short
+- Six free question and content types: multiple choice, true/false, short
   answer, poll, word cloud and presentation slide.
-- Session report, student view and CSV export.
+- Free session report, student view and CSV export.
 - JSON and ZIP migration for teacher-owned Kahoot exports, including local
   media, idempotent source tracking, and a transparent report of adapted or
   unsupported content. Import remains fully available in the base package.
@@ -22,27 +22,24 @@ watermarks, or online activation.
 - **Question Types Plus:** puzzle, slider, scale, pin/heatmap, image reveal,
   brainstorming and teacher-reviewed open response.
 - **Game Modes & Motivation:** team, accuracy and security modes, seasonal
-  themes and course motivation features.
+  themes and the course Geistopia.
 - **Self-study & Practice:** assignments, deadlines, reminders, flashcards,
   practice tests and weekly goals.
 - **Reports Pro:** combined and course reports, XLSX export, difficulty
   analysis and moderation trail.
 - **AI Workshop:** topic/PDF/PPTX to quiz and text-to-speech.
-- **Bühnen-Check:** presentation practice with body-language and duration
-  feedback, fully in the browser.
 
 Uninstalled capabilities are absent from navigation and authoring controls.
 Installed addons use an offline signed entitlement for new premium content.
 When an entitlement expires, existing questions, sessions, assignments,
 reports and exports remain playable, visible, editable and exportable. A
-missing or rejected licence file does not block access to existing data.
+missing or rejected licence file never holds existing data hostage.
 
 ## Moodle integration
 
 Quizgeist uses Moodle capabilities, enrolments, activity visibility, groups,
 completion, gradebook, events, scheduled tasks, backup and restore, course
 reset, and the Privacy API. Student and report access is checked server-side.
-Live sessions update the current state through HTTP polling.
 Correct answers and scoring targets are withheld from player payloads until the
 authoritative reveal.
 
@@ -52,17 +49,17 @@ authoritative reveal.
 - PHP DOM, Fileinfo, and Zip extensions.
 - JavaScript enabled in participating browsers.
 - Moodle cron configured for reminders and finalisation tasks.
-- The AI Workshop works with the managed AI service included in its package. If
-  that service component is absent, Quizgeist explains the requirement and
-  retains its rule-based draft fallback. Sites operating their own AI
-  infrastructure can use Moodle's built-in AI settings as Moodle's open
-  standard path.
-- An optional site-local text-to-speech provider. Quizgeist hides unavailable
-  voice controls cleanly.
+- The AI Workshop works with the managed Quizgeist AI server included in its
+  package and uses `local_control_ai` for the GPUQ-backed connection. If that
+  server component is absent, Quizgeist explains the requirement and retains
+  its rule-based draft fallback. Sites operating their own AI infrastructure
+  can use Moodle's built-in AI settings as Moodle's open standard path.
+- Optional `local_voces` for text-to-speech. Quizgeist hides unavailable voice
+  controls cleanly.
 - No font files are bundled or fetched. All themes use local system-font
   stacks. The optional site-local families Sora, Poppins, Inter, Rubik, and
-  Pathway Gothic One retain the intended typography when the site configures
-  matching local fonts.
+  Pathway Gothic One retain the intended typography; on the MOS installation
+  they are provided site-wide by the optional `local_localfonts` plugin.
 
 The plugin does not require an external CDN, analytics service, image service,
 or public AI endpoint.
@@ -88,14 +85,15 @@ upload limits must all allow the archive size. Quizgeist caps archives at
 128 MB compressed, 160 MB uncompressed, 64 MB combined Kahoot JSON and
 individual media files at 25 MB. Each Kahoot is limited to 150 questions.
 
-## Performance evidence and deliberate boundaries
+## Intended scale and deliberate boundaries
 
-A current permitted performance record covers 27 simultaneous players, with a
-median response time of 21 ms and zero errors.
+Quizgeist is designed for school use: 40 simultaneous players are the normal
+target and deployments of up to approximately 200 players per session are
+supported, rather than a commercial 800-player tier.
 
-Marketplaces, subscriber channels, standalone apps, offline app mode, and
-third-party learning apps are outside the Moodle activity scope. The
-image-reveal effect transfers the complete protected Moodle image
+Commercial marketplaces, subscriber channels, AccessPass, standalone apps,
+offline app mode, and third-party learning apps are outside the Moodle activity
+scope. The image-reveal effect transfers the complete protected Moodle image
 after the server-authoritative question start and then masks it in the browser;
 it should therefore be used for recognition and engagement, not to protect a
 security-critical image.
@@ -108,7 +106,7 @@ affiliated with or endorsed by Kahoot.
 ## Installation
 
 Install or upgrade the base at `mod/quizgeist` first and visit Moodle's Site
-administration notifications page. Then copy each selected component to
+administration notifications page. Then copy each purchased component to
 `mod/quizgeist/addon/<name>` and run notifications again. Finally upload the
 signed file on the Quizgeist licence administration page. The file is verified
 locally with an instance-bound Ed25519 signature; installing and using the base

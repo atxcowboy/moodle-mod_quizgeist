@@ -35,6 +35,98 @@ if ($ADMIN->fulltree) {
         )
     ));
 
+    $settings->add(new admin_setting_heading(
+        'mod_quizgeist/live_heading',
+        get_string('settings:live_heading', $quizgeistcomponent),
+        get_string('settings:live_heading:description', $quizgeistcomponent)
+    ));
+    $settings->add(new admin_setting_configselect(
+        'mod_quizgeist/livetransport',
+        get_string('settings:livetransport', $quizgeistcomponent),
+        get_string('settings:livetransport:description', $quizgeistcomponent),
+        'polling',
+        [
+            'polling' => get_string('settings:livetransport:polling', $quizgeistcomponent),
+            'websocket' => get_string('settings:livetransport:websocket', $quizgeistcomponent),
+        ]
+    ));
+    $makeurlsetting = static function(string $name, string $visiblename, string $description) {
+        return new class($name, $visiblename, $description, '', PARAM_RAW_TRIMMED) extends admin_setting_configtext {
+            /** @var callable|null */
+            private $validatefunction;
+
+            public function set_validate_function(?callable $validatefunction = null): void {
+                $this->validatefunction = $validatefunction;
+            }
+
+            public function validate($data) {
+                $parentvalidation = parent::validate($data);
+                if ($parentvalidation !== true) {
+                    return $parentvalidation;
+                }
+                if ($this->validatefunction !== null) {
+                    $validationerror = call_user_func($this->validatefunction, $data);
+                    return $validationerror === '' ? true : $validationerror;
+                }
+                return true;
+            }
+        };
+    };
+    $relayurlsetting = $makeurlsetting(
+        'mod_quizgeist/relayurl',
+        get_string('settings:relayurl', $quizgeistcomponent),
+        get_string('settings:relayurl:description', $quizgeistcomponent)
+    );
+    $relayurlsetting->set_validate_function(static function(string $value) use ($quizgeistcomponent): string {
+        if ($value === '') {
+            return '';
+        }
+        $parts = parse_url($value);
+        if ($parts === false || !in_array(strtolower((string)($parts['scheme'] ?? '')), ['ws', 'wss'], true)
+                || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])
+                || isset($parts['fragment']) || (isset($parts['port'])
+                && ($parts['port'] < 1 || $parts['port'] > 65535))) {
+            return get_string('settings:relayurl:error', $quizgeistcomponent);
+        }
+        return '';
+    });
+    $settings->add($relayurlsetting);
+
+    $relaynotifysetting = $makeurlsetting(
+        'mod_quizgeist/relaynotifyurl',
+        get_string('settings:relaynotifyurl', $quizgeistcomponent),
+        get_string('settings:relaynotifyurl:description', $quizgeistcomponent)
+    );
+    $relaynotifysetting->set_validate_function(static function(string $value) use ($quizgeistcomponent): string {
+        if ($value === '') {
+            return '';
+        }
+        $parts = parse_url($value);
+        if ($parts === false || !in_array(strtolower((string)($parts['scheme'] ?? '')), ['http', 'https'], true)
+                || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])
+                || isset($parts['fragment']) || (isset($parts['port'])
+                && ($parts['port'] < 1 || $parts['port'] > 65535))) {
+            return get_string('settings:relaynotifyurl:error', $quizgeistcomponent);
+        }
+        return '';
+    });
+    $settings->add($relaynotifysetting);
+    $settings->add(new admin_setting_configpasswordunmask(
+        'mod_quizgeist/relaysecret',
+        get_string('settings:relaysecret', $quizgeistcomponent),
+        get_string('settings:relaysecret:description', $quizgeistcomponent),
+        ''
+    ));
+
+    if (get_config('mod_quizgeist', 'livetransport') === 'websocket'
+            && trim((string)get_config('mod_quizgeist', 'relayurl')) === '') {
+        $settings->add(new admin_setting_heading(
+            'mod_quizgeist/live_warning',
+            get_string('settings:live_warning', $quizgeistcomponent),
+            get_string('settings:live_warning:description', $quizgeistcomponent)
+        ));
+    }
+
     // U3 Kurzclip-Kanal. Bewusst im BASIS-Plugin und nicht im KI-Addon:
     // Aufnahme und Ablage gehoeren zur Basis, damit vorhandene Aufnahmen
     // auch ohne Addon hoer- und loeschbar bleiben (P11_PLAN.md 3/U3).

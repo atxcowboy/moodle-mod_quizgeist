@@ -1,7 +1,8 @@
-# Quizgeist 1.2: Basisplugin, Addons und Lizenzgrenze
+# Quizgeist 1.1: Basisplugin, Addons und Lizenzgrenze
 
-Dieses Dokument beschreibt die öffentliche technische Paketgrenze und die
-Zusammenarbeit zwischen Basisplugin und Addons.
+Dieses Dokument beschreibt die technische Paketgrenze. Die verbindlichen
+Produktregeln stehen in `PRODUKT.md`, das signierte Dateiformat in
+`LIZENZ_VERTRAG.md`.
 
 ## Komponenten
 
@@ -19,7 +20,6 @@ Registrierungen ab.
 | `selfstudy` | `quizgeistaddon_selfstudy` | Selfstudy-AJAX-Handler |
 | `reports` | `quizgeistaddon_reports` | Pro-Berichtsfähigkeiten und Einstellungen |
 | `ai` | `quizgeistaddon_ai` | KI-Handler, Quellen, Gateway und Werkstatt |
-| `buehne` | `quizgeistaddon_buehne` | Bühnen-Check und Präsentationsfeedback |
 
 Ein Provider beschreibt vorhandenen Code, er erteilt keine Berechtigung.
 `feature_gate` ist die einzige Stelle, die installierten Code und signiertes
@@ -87,13 +87,19 @@ Bausteine bleiben deshalb bewusst in der Basis:
 Diese Schnitte sind keine zweite Implementierung: Jede Fähigkeit hat genau
 einen Laufzeitpfad, und Neuanlage hat genau einen zentralen Gate-Entscheid.
 
-## Paketierung
+## Paketierung und Abnahme
 
-Das Basispaket enthält `mod_quizgeist` ohne die sechs
+Das Basispaket enthält `mod_quizgeist` ohne die fünf
 `addon/<name>`-Verzeichnisse. Jedes Addonpaket enthält genau sein
 Unterverzeichnis und wird erst nach einer kompatiblen Basisversion installiert.
-Eine Vollauslieferung darf alle sechs Verzeichnisse enthalten. Die Addons
-werden unabhängig voneinander installiert und nur über die öffentliche
-Providergrenze des Basisplugins angesprochen. Installierte Addons können
-dadurch dieselbe Basisversion gemeinsam nutzen, ohne Daten oder
-Implementierungsdetails des jeweils anderen Addons zu übernehmen.
+Eine Vollauslieferung darf alle sechs Verzeichnisse enthalten.
+
+`checks/P10_check.sh` prüft den Sourcezustand ohne Moodle-Änderung und bietet
+explizite, vom Orchestrator vorbereitete Live-Stufen. Es führt selbst weder
+Deploy noch Moodle-Upgrade aus. `checks/P9_check.sh --live` bleibt mit allen
+installierten und berechtigten Addons die Regressionsversicherung.
+
+Der Produktions-Keyring ist ein Release-Artefakt. Der Testschlüssel aus dem
+Lizenzvertrag darf ausschließlich in Tests vorkommen. Fehlt der echte
+Trust-Anchor, muss die Abnahme trotz sonst grüner Quellprüfungen mit einem
+Release-Blocker enden.

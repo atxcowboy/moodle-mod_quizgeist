@@ -479,6 +479,7 @@ var QuizgeistPlayApp = (() => {
   var MIN_POLL_DELAY_MS = 1100;
   var MAX_ACTIVE_POLL_DELAY_MS = 4e3;
   var MAX_ERROR_DELAY_MS = 8e3;
+  var SOCKET_POLL_DELAY_MS = 3e4;
   var AdaptivePoller = class {
     constructor(request, onError) {
       this.request = request;
@@ -488,6 +489,7 @@ var QuizgeistPlayApp = (() => {
       __publicField(this, "inFlight", false);
       __publicField(this, "kickPending", false);
       __publicField(this, "running", false);
+      __publicField(this, "socketActive", false);
       __publicField(this, "timeoutId", null);
     }
     start(immediate = true) {
@@ -496,11 +498,14 @@ var QuizgeistPlayApp = (() => {
       }
       this.running = true;
       this.consecutiveFailures = 0;
-      this.schedule(immediate ? 0 : MIN_POLL_DELAY_MS);
+      this.schedule(
+        immediate ? 0 : this.socketActive ? SOCKET_POLL_DELAY_MS : MIN_POLL_DELAY_MS
+      );
     }
     stop() {
       var _a;
       this.running = false;
+      this.socketActive = false;
       this.kickPending = false;
       if (this.timeoutId !== null) {
         window.clearTimeout(this.timeoutId);
@@ -523,6 +528,24 @@ var QuizgeistPlayApp = (() => {
         this.timeoutId = null;
       }
       this.schedule(0);
+    }
+    /**
+     * Keep a slow safety poll while the relay socket is connected. A lost
+     * socket immediately returns to the normal adaptive polling cadence.
+     */
+    setSocketActive(active) {
+      if (this.socketActive === active) {
+        return;
+      }
+      this.socketActive = active;
+      if (!this.running || this.inFlight) {
+        return;
+      }
+      if (this.timeoutId !== null) {
+        window.clearTimeout(this.timeoutId);
+        this.timeoutId = null;
+      }
+      this.schedule(active ? SOCKET_POLL_DELAY_MS : 0);
     }
     isRunning() {
       return this.running;
@@ -577,6 +600,9 @@ var QuizgeistPlayApp = (() => {
       this.schedule(nextDelay);
     }
     successDelay(requestedDelay) {
+      if (this.socketActive) {
+        return SOCKET_POLL_DELAY_MS;
+      }
       if (document.visibilityState === "hidden") {
         return MAX_ACTIVE_POLL_DELAY_MS;
       }
@@ -3190,6 +3216,184 @@ var QuizgeistPlayApp = (() => {
     }
   };
 
+  // src/live/relay-socket.ts
+  var CHANNEL_DEADLINE_MS = 1e4;
+  var STABLE_CONNECTION_MS = 1e4;
+  var MAX_FAILURES = 3;
+  var RECONNECT_DELAYS_MS = [1e3, 2e3, 4e3, 8e3, 15e3];
+  var RelaySocket = class {
+    constructor(options) {
+      this.options = options;
+      __publicField(this, "socket", null);
+      __publicField(this, "reconnectTimer", null);
+      __publicField(this, "channelTimer", null);
+      __publicField(this, "stableTimer", null);
+      __publicField(this, "stopped", true);
+      __publicField(this, "failureCount", 0);
+      __publicField(this, "lastStateVersion", -1);
+    }
+    start() {
+      if (!this.stopped) {
+        return;
+      }
+      this.stopped = false;
+      this.failureCount = 0;
+      this.connect();
+    }
+    stop() {
+      var _a, _b;
+      this.stopped = true;
+      if (this.reconnectTimer !== null) {
+        window.clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+      this.clearChannelTimer();
+      this.clearStableTimer();
+      const socket = this.socket;
+      this.socket = null;
+      if (socket !== null) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        try {
+          socket.close();
+        } catch (_error) {
+        }
+      }
+      (_b = (_a = this.options).onStatus) == null ? void 0 : _b.call(_a, false);
+    }
+    isConnected() {
+      var _a;
+      return ((_a = this.socket) == null ? void 0 : _a.readyState) === WebSocket.OPEN;
+    }
+    connect() {
+      if (this.stopped || this.socket !== null) {
+        return;
+      }
+      let socket;
+      try {
+        socket = new WebSocket(this.options.connection.url);
+      } catch (_error) {
+        this.connectionFailed();
+        return;
+      }
+      this.socket = socket;
+      this.channelTimer = window.setTimeout(() => {
+        if (this.socket !== socket || socket.readyState !== WebSocket.CONNECTING) {
+          return;
+        }
+        this.failSocket(socket);
+      }, CHANNEL_DEADLINE_MS);
+      socket.onopen = () => {
+        var _a, _b;
+        if (this.socket !== socket || this.stopped) {
+          return;
+        }
+        this.clearChannelTimer();
+        try {
+          socket.send(this.options.connection.channel);
+        } catch (_error) {
+          this.failSocket(socket);
+          return;
+        }
+        this.clearStableTimer();
+        this.stableTimer = window.setTimeout(() => {
+          if (this.socket !== socket || this.stopped || socket.readyState !== WebSocket.OPEN) {
+            return;
+          }
+          this.failureCount = 0;
+          this.stableTimer = null;
+        }, STABLE_CONNECTION_MS);
+        (_b = (_a = this.options).onStatus) == null ? void 0 : _b.call(_a, true);
+      };
+      socket.onmessage = (event) => {
+        if (this.socket !== socket || this.stopped || typeof event.data !== "string") {
+          return;
+        }
+        let message;
+        try {
+          message = JSON.parse(event.data);
+        } catch (_error) {
+          return;
+        }
+        if (!message || typeof message !== "object") {
+          return;
+        }
+        const version = message.v;
+        if (!Number.isSafeInteger(version) || Number(version) < 0) {
+          return;
+        }
+        const stateVersion = Number(version);
+        if (stateVersion <= this.lastStateVersion) {
+          return;
+        }
+        this.lastStateVersion = stateVersion;
+        this.options.onStateVersion(stateVersion);
+      };
+      socket.onerror = () => {
+        if (this.socket !== socket || this.stopped) {
+          return;
+        }
+        this.failSocket(socket);
+      };
+      socket.onclose = () => {
+        var _a, _b;
+        if (this.socket !== socket) {
+          return;
+        }
+        this.socket = null;
+        this.clearChannelTimer();
+        this.clearStableTimer();
+        (_b = (_a = this.options).onStatus) == null ? void 0 : _b.call(_a, false);
+        if (!this.stopped) {
+          this.connectionFailed();
+        }
+      };
+    }
+    connectionFailed() {
+      var _a, _b;
+      if (this.stopped || this.socket !== null) {
+        return;
+      }
+      (_b = (_a = this.options).onStatus) == null ? void 0 : _b.call(_a, false);
+      this.failureCount += 1;
+      if (this.failureCount >= MAX_FAILURES) {
+        return;
+      }
+      const delay = RECONNECT_DELAYS_MS[Math.min(this.failureCount - 1, RECONNECT_DELAYS_MS.length - 1)];
+      this.reconnectTimer = window.setTimeout(() => {
+        this.reconnectTimer = null;
+        this.connect();
+      }, delay);
+    }
+    failSocket(socket) {
+      if (this.socket !== socket) {
+        return;
+      }
+      this.socket = null;
+      this.clearChannelTimer();
+      this.clearStableTimer();
+      try {
+        socket.close();
+      } catch (_error) {
+      }
+      this.connectionFailed();
+    }
+    clearChannelTimer() {
+      if (this.channelTimer !== null) {
+        window.clearTimeout(this.channelTimer);
+        this.channelTimer = null;
+      }
+    }
+    clearStableTimer() {
+      if (this.stableTimer !== null) {
+        window.clearTimeout(this.stableTimer);
+        this.stableTimer = null;
+      }
+    }
+  };
+
   // src/live/tts.ts
   function text(config, key, fallback) {
     var _a, _b;
@@ -3513,6 +3717,7 @@ var QuizgeistPlayApp = (() => {
       __publicField(this, "joinCode", "");
       __publicField(this, "liveRegion");
       __publicField(this, "poller");
+      __publicField(this, "relaySocket", null);
       __publicField(this, "requestedQuestionDelivery", "");
       __publicField(this, "answerDraft", null);
       __publicField(this, "lastCountdownSecond", null);
@@ -3596,9 +3801,11 @@ var QuizgeistPlayApp = (() => {
           "live_player_bootstrap",
           sessionId ? { sessionId } : {}
         );
+        this.configureRelay(result.relay);
         if (result.state) {
           if (this.isTerminalPhase(result.state.phase)) {
             this.clearStoredSession();
+            this.stopRelay();
             if (this.config.initialJoinCode) {
               this.currentState = null;
               await this.lookup(this.config.initialJoinCode);
@@ -3626,6 +3833,45 @@ var QuizgeistPlayApp = (() => {
         this.handleActionError(error, () => {
           void this.init();
         });
+      }
+    }
+    configureRelay(connection) {
+      this.stopRelay();
+      if (!connection || typeof connection.url !== "string" || connection.url === "" || typeof connection.channel !== "string" || connection.channel === "") {
+        return;
+      }
+      this.relaySocket = new RelaySocket({
+        connection,
+        onStateVersion: (stateVersion) => {
+          if (this.currentState && stateVersion > this.currentState.stateVersion) {
+            this.poller.kick();
+          }
+        },
+        onStatus: (connected) => this.poller.setSocketActive(connected)
+      });
+      this.relaySocket.start();
+    }
+    stopRelay() {
+      var _a;
+      (_a = this.relaySocket) == null ? void 0 : _a.stop();
+      this.relaySocket = null;
+      this.poller.setSocketActive(false);
+    }
+    /**
+     * Join/resume responses contain state only. Re-read bootstrap in the
+     * background so the relay DTO remains sourced exclusively by bootstrap.
+     */
+    async refreshRelay(sessionId) {
+      var _a;
+      try {
+        const result = await this.api.post(
+          "live_player_bootstrap",
+          { sessionId }
+        );
+        if (((_a = this.currentState) == null ? void 0 : _a.sessionId) === sessionId && !this.isTerminalPhase(this.currentState.phase)) {
+          this.configureRelay(result.relay);
+        }
+      } catch (_error) {
       }
     }
     s(key, values = {}, fallback = "") {
@@ -3658,6 +3904,7 @@ var QuizgeistPlayApp = (() => {
       return brand;
     }
     renderJoin(message = "") {
+      this.stopRelay();
       this.stopClock();
       this.setRootState("join", null);
       const card = element2("section", "quizgeist-player-card quizgeist-player-join");
@@ -3747,6 +3994,7 @@ var QuizgeistPlayApp = (() => {
         if (result.resume) {
           this.storeSession(result.resume.sessionId);
           this.applyState(result.resume, true);
+          void this.refreshRelay(result.resume.sessionId);
           return;
         }
         this.currentLookup = result.state;
@@ -3959,6 +4207,7 @@ var QuizgeistPlayApp = (() => {
         }
         this.storeSession(result.state.sessionId);
         this.applyState(result.state, true);
+        void this.refreshRelay(result.state.sessionId);
       } catch (error) {
         if (this.isAuthenticationError(error)) {
           this.renderExpiredSession();
@@ -3972,15 +4221,19 @@ var QuizgeistPlayApp = (() => {
     }
     async poll(signal) {
       var _a;
-      if (!this.currentState) {
+      const state = this.currentState;
+      if (!state) {
         return { pollAfterMs: 1800 };
       }
       const result = await this.api.post("live_player_poll", {
-        knownAggregateRevision: this.currentState.aggregateRevision || 0,
-        knownQuestionToken: ((_a = this.currentState.question) == null ? void 0 : _a.questionToken) || "",
-        knownStateVersion: this.currentState.stateVersion,
-        sessionId: this.currentState.sessionId
+        knownAggregateRevision: state.aggregateRevision || 0,
+        knownQuestionToken: ((_a = state.question) == null ? void 0 : _a.questionToken) || "",
+        knownStateVersion: state.stateVersion,
+        sessionId: state.sessionId
       }, signal);
+      if (!this.currentState || this.currentState.sessionId !== state.sessionId) {
+        return {};
+      }
       this.serverClockOffsetMs = result.serverTimeMs - Date.now();
       if (result.changed && result.state) {
         this.applyState(result.state);
@@ -4056,6 +4309,7 @@ var QuizgeistPlayApp = (() => {
       }
       if (state.phase === "ended" || state.phase === "aborted") {
         this.clearStoredSession();
+        this.stopRelay();
         this.poller.stop();
       } else if (!this.poller.isRunning()) {
         this.poller.start(false);
@@ -4794,6 +5048,7 @@ var QuizgeistPlayApp = (() => {
       target.focus();
     }
     renderFatal(message, actionLabel, action) {
+      this.stopRelay();
       this.poller.stop();
       this.stopClock();
       const card = element2("section", "quizgeist-player-card quizgeist-player-fatal");
