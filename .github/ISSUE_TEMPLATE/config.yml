@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Commercial support and add-ons
+    url: https://panomity.de/software/quizgeist/
+    about: Contact Panomity for commercial support and optional add-ons.
+  - name: Security
+    url: https://github.com/atxcowboy/moodle-mod_quizgeist/blob/main/SECURITY.md
+    about: Read the security policy before reporting a vulnerability.

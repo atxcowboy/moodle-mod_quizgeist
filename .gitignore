@@ -1,0 +1,20 @@
+# Frontend dependencies
+frontend/node_modules/
+
+# Frontend build intermediates and local caches
+frontend/.cache/
+frontend/.tmp/
+frontend/tmp/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+
+# Logs and operating-system metadata
+*.log
+.DS_Store
+
+# Editor metadata
+.idea/
+.vscode/
+*.swp
+*.swo

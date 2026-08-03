@@ -1,0 +1,75 @@
+name: Bug report
+description: Report a reproducible problem with Quizgeist.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a problem. Please search existing issues before submitting a duplicate.
+  - type: input
+    id: moodle-version
+    attributes:
+      label: Moodle version
+      description: Which Moodle version is running on the affected site?
+      placeholder: For example, Moodle 5.0.1
+    validations:
+      required: true
+  - type: input
+    id: php-version
+    attributes:
+      label: PHP version
+      description: Which PHP version is used by the affected site?
+      placeholder: For example, PHP 8.3.10
+    validations:
+      required: true
+  - type: input
+    id: quizgeist-version
+    attributes:
+      label: Quizgeist version
+      description: Which Quizgeist version is installed?
+      placeholder: For example, 1.2.0
+    validations:
+      required: true
+  - type: input
+    id: browser-device
+    attributes:
+      label: Browser/device
+      description: Which browser, operating system, and device are affected?
+      placeholder: For example, Firefox 141 on Ubuntu 24.04 desktop
+    validations:
+      required: true
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce
+      description: List the smallest set of steps that reliably reproduces the problem.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include any visible error messages.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Paste relevant Moodle, PHP or browser-console logs. Remove secrets and personal data.
+      render: shell
+    validations:
+      required: false

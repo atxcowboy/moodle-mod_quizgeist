@@ -1,0 +1,691 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="mod/quizgeist/db" VERSION="2026080301" COMMENT="XMLDB file for mod_quizgeist"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="quizgeist" COMMENT="Activity instances and their default settings">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="course" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Course containing this activity"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Activity name"/>
+        <FIELD NAME="intro" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Activity description"/>
+        <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Text format of the activity description"/>
+        <FIELD NAME="theme" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="hell" SEQUENCE="false" COMMENT="Visual theme identifier"/>
+        <FIELD NAME="season" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="herbst" SEQUENCE="false" COMMENT="Season used by the jahreszeiten theme"/>
+        <FIELD NAME="allowbacktrack" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Whether players may navigate back to earlier questions"/>
+        <FIELD NAME="defaultmode" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="classic" SEQUENCE="false" COMMENT="Default play mode"/>
+        <FIELD NAME="grademethod" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="best" SEQUENCE="false" COMMENT="Aggregation method: best, last or average"/>
+        <FIELD NAME="grade" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Maximum grade, negative scale ID, or zero when grading is disabled"/>
+        <FIELD NAME="pacemode" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="even" SEQUENCE="false" COMMENT="Point axis orthogonal to the play mode: timed keeps the response-time component, even removes it while keeping the streak"/>
+        <FIELD NAME="leaderboard" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="own" SEQUENCE="false" COMMENT="Server-side leaderboard visibility: own, team or full"/>
+        <FIELD NAME="timervisible" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Whether the countdown is shown to players"/>
+        <FIELD NAME="soundenabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Whether the generated sound engine may play at all"/>
+        <FIELD NAME="friendlynew" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Whether questions carrying the reserved topic tag neu use the error-friendly framing"/>
+        <FIELD NAME="reasonstep" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Activity default for the reason stage between answer and reveal"/>
+        <FIELD NAME="explanationpolicy" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="immediate" SEQUENCE="false" COMMENT="Worked-solution disclosure policy: immediate, atend or never"/>
+        <FIELD NAME="completionparticipate" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Require participation for completion"/>
+        <FIELD NAME="completionpercent" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Minimum percentage required for completion; zero disables the rule"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="course_idx" UNIQUE="false" FIELDS="course"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_imports" COMMENT="Idempotent external-source imports and their teacher-facing reports">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Target Quizgeist activity"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Target course used for course-wide idempotence"/>
+        <FIELD NAME="sourceformat" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="kahoot" SEQUENCE="false" COMMENT="Stable source format identifier"/>
+        <FIELD NAME="sourceuuid" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false" COMMENT="Stable external source identifier"/>
+        <FIELD NAME="sourcename" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Imported source title"/>
+        <FIELD NAME="sourcehash" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false" COMMENT="SHA-256 of the canonical source document"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="pending" SEQUENCE="false" COMMENT="Pending, complete or failed"/>
+        <FIELD NAME="questioncount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Questions retained in Quizgeist"/>
+        <FIELD NAME="adaptedcount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Questions retained with a documented adaptation"/>
+        <FIELD NAME="skippedcount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Questions that could not be represented"/>
+        <FIELD NAME="mediacount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Source media retained in Moodle file storage"/>
+        <FIELD NAME="reportjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Detailed, teacher-facing import report"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last import state change"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="course_fk" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="quiz_source_uix" UNIQUE="true" FIELDS="quizgeistid, sourceformat, sourceuuid"/>
+        <INDEX NAME="course_source_idx" UNIQUE="false" FIELDS="courseid, sourceformat, sourceuuid"/>
+        <INDEX NAME="status_modified_idx" UNIQUE="false" FIELDS="status, timemodified"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_questions" COMMENT="Ordered questions, content slides and their type-specific JSON options">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning Quizgeist activity"/>
+        <FIELD NAME="importid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="External import provenance, when applicable"/>
+        <FIELD NAME="rootid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Stable root question ID shared by every content version"/>
+        <FIELD NAME="version" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="One-based content version within the question lineage"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Zero-based position in the quiz"/>
+        <FIELD NAME="qtype" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false" COMMENT="Quizgeist question or slide type"/>
+        <FIELD NAME="questiontext" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Question, prompt or slide content"/>
+        <FIELD NAME="questionformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Text format of questiontext"/>
+        <FIELD NAME="optionsjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Answers and type-specific options as JSON"/>
+        <FIELD NAME="timelimit" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="20" SEQUENCE="false" COMMENT="Time limit in seconds; zero means no limit"/>
+        <FIELD NAME="pointmode" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="standard" SEQUENCE="false" COMMENT="Point mode: standard, double or none"/>
+        <FIELD NAME="explanation" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Explanation or worked solution"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="ready" SEQUENCE="false" COMMENT="Editorial status: draft, media_pending, ready or archived"/>
+        <FIELD NAME="createdby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User who created the content; nullable when anonymised"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="import_fk" TYPE="foreign" FIELDS="importid" REFTABLE="quizgeist_imports" REFFIELDS="id"/>
+        <KEY NAME="createdby_fk" TYPE="foreign" FIELDS="createdby" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="quiz_sort_idx" UNIQUE="false" FIELDS="quizgeistid, sortorder"/>
+        <INDEX NAME="quiz_root_idx" UNIQUE="false" FIELDS="quizgeistid, rootid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_sessions" COMMENT="Server-side state machine for live sessions">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Quiz played in this session"/>
+        <FIELD NAME="hostuserid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Hosting user; nullable when anonymised"/>
+        <FIELD NAME="joincode" TYPE="char" LENGTH="6" NOTNULL="false" SEQUENCE="false" COMMENT="Unique six-character join code"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="lobby" SEQUENCE="false" COMMENT="State machine status"/>
+        <FIELD NAME="mode" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="classic" SEQUENCE="false" COMMENT="Classic, accuracy, team or safety mode"/>
+        <FIELD NAME="currentquestionid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Question currently presented"/>
+        <FIELD NAME="stateversion" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Monotonic version used for efficient polling"/>
+        <FIELD NAME="statejson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Compact reconnect-safe session state as JSON"/>
+        <FIELD NAME="settingsjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Session-specific settings as JSON"/>
+        <FIELD NAME="timestarted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Start timestamp"/>
+        <FIELD NAME="timeended" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="End timestamp"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last state change timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="host_fk" TYPE="foreign" FIELDS="hostuserid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="question_fk" TYPE="foreign" FIELDS="currentquestionid" REFTABLE="quizgeist_questions" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="joincode_uix" UNIQUE="true" FIELDS="joincode"/>
+        <INDEX NAME="quiz_status_idx" UNIQUE="false" FIELDS="quizgeistid, status"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_session_questions" COMMENT="Immutable question sequence and current visit state for each live session">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="sessionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning live session"/>
+        <FIELD NAME="sortindex" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Zero-based immutable position in the played sequence"/>
+        <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Exact frozen question version"/>
+        <FIELD NAME="visit" TYPE="char" LENGTH="32" NOTNULL="false" SEQUENCE="false" COMMENT="Current or most recent visit token for this position"/>
+        <FIELD NAME="visitstate" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="pending" SEQUENCE="false" COMMENT="Visit state: pending, active, revealed or skipped"/>
+        <FIELD NAME="resolvedvisit" TYPE="char" LENGTH="32" NOTNULL="false" SEQUENCE="false" COMMENT="Visit token whose revealed result is authoritative"/>
+        <FIELD NAME="stage" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="answer" SEQUENCE="false" COMMENT="Current type-owned interaction stage for this position"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="session_fk" TYPE="foreign" FIELDS="sessionid" REFTABLE="quizgeist_sessions" REFFIELDS="id"/>
+        <KEY NAME="question_fk" TYPE="foreign" FIELDS="questionid" REFTABLE="quizgeist_questions" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="session_sort_uix" UNIQUE="true" FIELDS="sessionid, sortindex"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_players" COMMENT="Authenticated players participating in a live session">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="sessionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Live session"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Moodle user represented by this player"/>
+        <FIELD NAME="displayname" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Real, chosen or generated session display name"/>
+        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Mapped Moodle group, when team mode uses course groups"/>
+        <FIELD NAME="teamname" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Free team name"/>
+        <FIELD NAME="avatarkey" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false" COMMENT="Selected local avatar identifier"/>
+        <FIELD NAME="score" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Current accumulated score"/>
+        <FIELD NAME="streak" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Current correct-answer streak"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="joined" SEQUENCE="false" COMMENT="Connection and participation status"/>
+        <FIELD NAME="timejoined" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Join timestamp"/>
+        <FIELD NAME="lastseen" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last successful poll timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="session_fk" TYPE="foreign" FIELDS="sessionid" REFTABLE="quizgeist_sessions" REFFIELDS="id"/>
+        <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="group_fk" TYPE="foreign" FIELDS="groupid" REFTABLE="groups" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="session_user_uix" UNIQUE="true" FIELDS="sessionid, userid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_assignments" COMMENT="Self-learning assignments and challenge settings">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Assigned Quizgeist activity"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Assignment name"/>
+        <FIELD NAME="mode" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="solo" SEQUENCE="false" COMMENT="Solo, practice, test or flashcards mode"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="open" SEQUENCE="false" COMMENT="Draft, open, closed or archived"/>
+        <FIELD NAME="timeopen" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Opening timestamp; zero means immediately"/>
+        <FIELD NAME="timedue" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Due timestamp; zero means no deadline"/>
+        <FIELD NAME="createdby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User who created the assignment; nullable when anonymised"/>
+        <FIELD NAME="selection" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="fixed" SEQUENCE="false" COMMENT="fixed freezes exact question versions; due freezes question roots and resolves the current version when an attempt starts"/>
+        <FIELD NAME="settingsjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Assignment and reminder settings as JSON"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="createdby_fk" TYPE="foreign" FIELDS="createdby" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="quiz_status_due_idx" UNIQUE="false" FIELDS="quizgeistid, status, timedue"/>
+        <INDEX NAME="status_due_idx" UNIQUE="false" FIELDS="status, timedue"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_assignment_questions" COMMENT="Immutable exact question-version snapshot for each self-learning assignment">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="assignmentid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning self-learning assignment"/>
+        <FIELD NAME="sortindex" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Zero-based immutable position in the assignment"/>
+        <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Exact frozen question version; authoritative only while the owning assignment has selection=fixed"/>
+        <FIELD NAME="rootid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Question root; authoritative for selection=due assignments, whose version is resolved when an attempt starts"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="assignment_fk" TYPE="foreign" FIELDS="assignmentid" REFTABLE="quizgeist_assignments" REFFIELDS="id"/>
+        <KEY NAME="question_fk" TYPE="foreign" FIELDS="questionid" REFTABLE="quizgeist_questions" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="assignment_sort_uix" UNIQUE="true" FIELDS="assignmentid, sortindex"/>
+        <INDEX NAME="assignment_question_uix" UNIQUE="true" FIELDS="assignmentid, questionid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_attempts" COMMENT="Self-learning attempts including navigation and flashcard stacks">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="assignmentid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Self-learning assignment"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Attempting Moodle user"/>
+        <FIELD NAME="attemptnumber" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Sequential attempt number per user and assignment"/>
+        <FIELD NAME="mode" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="solo" SEQUENCE="false" COMMENT="Mode used for this attempt"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="inprogress" SEQUENCE="false" COMMENT="In-progress, completed or abandoned"/>
+        <FIELD NAME="score" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Points earned"/>
+        <FIELD NAME="maxscore" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Maximum possible points"/>
+        <FIELD NAME="statejson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Current server-owned navigation state as JSON"/>
+        <FIELD NAME="flashcardsjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Known and repeat flashcard stacks as JSON"/>
+        <FIELD NAME="stateversion" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Monotonic optimistic-concurrency version"/>
+        <FIELD NAME="timestarted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Attempt start timestamp"/>
+        <FIELD NAME="timefinished" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Attempt completion timestamp"/>
+        <FIELD NAME="remindedat" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Timestamp of the deadline reminder; zero if none was sent"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="assignment_fk" TYPE="foreign" FIELDS="assignmentid" REFTABLE="quizgeist_assignments" REFFIELDS="id"/>
+        <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="assignment_user_attempt_uix" UNIQUE="true" FIELDS="assignmentid, userid, attemptnumber"/>
+        <INDEX NAME="user_status_idx" UNIQUE="false" FIELDS="userid, status"/>
+        <INDEX NAME="status_modified_idx" UNIQUE="false" FIELDS="status, timemodified"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_attempt_questions" COMMENT="Exact frozen question versions, drafts and disclosure state for self-learning attempts">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="attemptid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning self-learning attempt"/>
+        <FIELD NAME="sortindex" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Zero-based immutable position in this attempt"/>
+        <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Exact frozen question version"/>
+        <FIELD NAME="visit" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false" COMMENT="Opaque projection and answer-handle token"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="pending" SEQUENCE="false" COMMENT="Pending, draft, revealed or submitted"/>
+        <FIELD NAME="answerjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Validated canonical test draft before final submission"/>
+        <FIELD NAME="round" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Current flashcard presentation round"/>
+        <FIELD NAME="timestarted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="First time this position was opened"/>
+        <FIELD NAME="timesubmitted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Authoritative submission timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last draft or disclosure state change"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="attempt_fk" TYPE="foreign" FIELDS="attemptid" REFTABLE="quizgeist_attempts" REFFIELDS="id"/>
+        <KEY NAME="question_fk" TYPE="foreign" FIELDS="questionid" REFTABLE="quizgeist_questions" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="attempt_sort_uix" UNIQUE="true" FIELDS="attemptid, sortindex"/>
+        <INDEX NAME="attempt_question_uix" UNIQUE="true" FIELDS="attemptid, questionid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_answers" COMMENT="Append-only live and self-learning responses">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="sessionid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Live session; set only for a live response"/>
+        <FIELD NAME="playerid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Live player; set only for a live response"/>
+        <FIELD NAME="attemptid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Self-learning attempt; set only for a solo response"/>
+        <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Answered question or reacted-to slide"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Moodle user who submitted this response"/>
+        <FIELD NAME="answertype" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="answer" SEQUENCE="false" COMMENT="Answer, scorevoid, moderation, reaction, idea, group, vote, reason or stage; reason is the never-scored think-moment justification and stage the never-scored marker of a completed stage check"/>
+        <FIELD NAME="visit" TYPE="char" LENGTH="32" NOTNULL="false" SEQUENCE="false" COMMENT="Opaque live or self-learning question visit token"/>
+        <FIELD NAME="submissionkey" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false" COMMENT="Client idempotency key for repeatable live interactions"/>
+        <FIELD NAME="answerjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Type-specific submitted response as JSON"/>
+        <FIELD NAME="iscorrect" TYPE="int" LENGTH="1" NOTNULL="false" SEQUENCE="false" COMMENT="Correctness, or null for ungraded content"/>
+        <FIELD NAME="points" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Points awarded for this response"/>
+        <FIELD NAME="maxpoints" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Maximum points available for this exact response"/>
+        <FIELD NAME="responsetime" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Response time in milliseconds"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Submission timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="session_fk" TYPE="foreign" FIELDS="sessionid" REFTABLE="quizgeist_sessions" REFFIELDS="id"/>
+        <KEY NAME="player_fk" TYPE="foreign" FIELDS="playerid" REFTABLE="quizgeist_players" REFFIELDS="id"/>
+        <KEY NAME="attempt_fk" TYPE="foreign" FIELDS="attemptid" REFTABLE="quizgeist_attempts" REFFIELDS="id"/>
+        <KEY NAME="question_fk" TYPE="foreign" FIELDS="questionid" REFTABLE="quizgeist_questions" REFFIELDS="id"/>
+        <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="sess_question_visit_type_idx" UNIQUE="false" FIELDS="sessionid, questionid, visit, answertype"/>
+        <INDEX NAME="sess_player_question_visit_idx" UNIQUE="false" FIELDS="sessionid, playerid, questionid, visit, answertype"/>
+        <INDEX NAME="live_submission_uix" UNIQUE="true" FIELDS="sessionid, playerid, questionid, visit, answertype, submissionkey"/>
+        <INDEX NAME="attempt_question_uix" UNIQUE="true" FIELDS="attemptid, questionid"/>
+        <INDEX NAME="user_time_idx" UNIQUE="false" FIELDS="userid, timecreated"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_assignment_reminders" COMMENT="Bounded deadline reminder delivery ledger">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="assignmentid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Assignment whose deadline was announced"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Recipient Moodle user"/>
+        <FIELD NAME="attemptcount" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of Moodle message delivery attempts"/>
+        <FIELD NAME="timesent" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Successful Moodle message timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="assignment_fk" TYPE="foreign" FIELDS="assignmentid" REFTABLE="quizgeist_assignments" REFFIELDS="id"/>
+        <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="assignment_user_uix" UNIQUE="true" FIELDS="assignmentid, userid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_goals" COMMENT="Personal weekly question targets per activity">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Activity whose self-learning progress is targeted"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Learner owning this personal target"/>
+        <FIELD NAME="target" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="20" SEQUENCE="false" COMMENT="Questions to finish in one calendar week"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last target update timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="quiz_user_uix" UNIQUE="true" FIELDS="quizgeistid, userid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_templates" COMMENT="School-wide reusable quiz template snapshots">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Template name"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Template description"/>
+        <FIELD NAME="contentjson" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Independent quiz snapshot as JSON"/>
+        <FIELD NAME="tags" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Search tags as JSON"/>
+        <FIELD NAME="visibility" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="school" SEQUENCE="false" COMMENT="Template visibility scope"/>
+        <FIELD NAME="createdby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Publishing user; nullable when anonymised"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Publication timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="createdby_fk" TYPE="foreign" FIELDS="createdby" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="visibility_modified_idx" UNIQUE="false" FIELDS="visibility, timemodified"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_rewards" COMMENT="Per-user avatar and accessory unlocks">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Activity that granted the reward, when applicable"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Moodle user owning the unlock"/>
+        <FIELD NAME="rewardkey" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false" COMMENT="Stable reward identifier"/>
+        <FIELD NAME="rewardtype" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="avatar" SEQUENCE="false" COMMENT="Avatar, accessory, skin or icon"/>
+        <FIELD NAME="metadatajson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Unlock metadata as JSON"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Unlock timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="user_reward_uix" UNIQUE="true" FIELDS="userid, rewardkey"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_tags" COMMENT="Reusable topic, question-type and competence labels owned by an activity, a course or the site">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="scope" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="activity" SEQUENCE="false" COMMENT="Ownership scope: activity, course or site"/>
+        <FIELD NAME="scopeid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Quizgeist activity ID, course ID, or zero for site scope"/>
+        <FIELD NAME="kind" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="topic" SEQUENCE="false" COMMENT="Label family: topic, qtype or competence"/>
+        <FIELD NAME="tagkey" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false" COMMENT="Stable machine key limited to a-z, 0-9, hyphen and underscore"/>
+        <FIELD NAME="label" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Human-readable label"/>
+        <FIELD NAME="colorkey" TYPE="char" LENGTH="32" NOTNULL="false" SEQUENCE="false" COMMENT="School-wide competence colour code"/>
+        <FIELD NAME="externalref" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="External reference such as a LehrplanPLUS locator"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Zero-based display order inside its kind"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="scope_kind_uix" UNIQUE="true" FIELDS="scope, scopeid, kind, tagkey"/>
+        <INDEX NAME="kind_sort_idx" UNIQUE="false" FIELDS="kind, sortorder"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_question_tags" COMMENT="Tag assignments bound to the question root, never to a content version">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Denormalised owning activity for fast activity-wide reads"/>
+        <FIELD NAME="rootid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Question root ID; deliberately not the version ID so an edit keeps the tag"/>
+        <FIELD NAME="tagid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Assigned tag"/>
+        <FIELD NAME="weight" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="100" SEQUENCE="false" COMMENT="Relative weight from 0 to 100: main competence versus secondary reference"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="approved" SEQUENCE="false" COMMENT="approved by a teacher, or suggested by a learner in the question workshop"/>
+        <FIELD NAME="createdby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User who created the assignment; nullable when anonymised"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="tag_fk" TYPE="foreign" FIELDS="tagid" REFTABLE="quizgeist_tags" REFFIELDS="id"/>
+        <KEY NAME="createdby_fk" TYPE="foreign" FIELDS="createdby" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="root_tag_uix" UNIQUE="true" FIELDS="rootid, tagid"/>
+        <INDEX NAME="quiz_tag_idx" UNIQUE="false" FIELDS="quizgeistid, tagid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_schedule" COMMENT="SM-2 repetition state per learner and question root; owned by the base so it stays readable, exportable and erasable without the self-study addon">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning Quizgeist activity"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Learner the repetition state belongs to"/>
+        <FIELD NAME="rootid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Question root ID; deliberately not the version ID so an edit keeps the learning state"/>
+        <FIELD NAME="easiness" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="250" SEQUENCE="false" COMMENT="SM-2 ease factor times one hundred; never below 130"/>
+        <FIELD NAME="intervaldays" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Current repetition interval in days"/>
+        <FIELD NAME="repetitions" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of consecutive successful repetitions"/>
+        <FIELD NAME="lapses" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of times the repetition chain was reset"/>
+        <FIELD NAME="duetime" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Unix timestamp of the next repetition; zero means due immediately"/>
+        <FIELD NAME="lastreviewed" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Unix timestamp of the last observed response"/>
+        <FIELD NAME="lastquality" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last mapped SM-2 quality from zero to five"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="user_root_uix" UNIQUE="true" FIELDS="quizgeistid, userid, rootid"/>
+        <INDEX NAME="due_idx" UNIQUE="false" FIELDS="quizgeistid, duetime"/>
+        <INDEX NAME="user_due_idx" UNIQUE="false" FIELDS="userid, duetime"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_misconceptions" COMMENT="Teacher-authored misconception labels per distractor of a question root; course content without any user column">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning Quizgeist activity"/>
+        <FIELD NAME="rootid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Question root ID; deliberately not the version ID so an edit keeps the label"/>
+        <FIELD NAME="answerkey" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false" COMMENT="Canonical answer ID of the root question, validated against its options"/>
+        <FIELD NAME="label" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Plain-text misconception label shown to the teacher only"/>
+        <FIELD NAME="hint" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Plain-text next-step hint for the teacher"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="root_answer_uix" UNIQUE="true" FIELDS="rootid, answerkey"/>
+        <INDEX NAME="quiz_root_idx" UNIQUE="false" FIELDS="quizgeistid, rootid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_workshop" COMMENT="Question workshop submissions; the question itself stays an ordinary draft row in quizgeist_questions">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning Quizgeist activity"/>
+        <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Exact draft version the learner submitted"/>
+        <FIELD NAME="rootid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Question root ID; the submission survives every later edit"/>
+        <FIELD NAME="authorid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Submitting learner; null after anonymisation"/>
+        <FIELD NAME="state" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="submitted" SEQUENCE="false" COMMENT="submitted, revising, approved or rejected"/>
+        <FIELD NAME="curatorid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Deciding teacher; null after anonymisation"/>
+        <FIELD NAME="curatornote" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Plain-text curation note for the learner"/>
+        <FIELD NAME="aicheckjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="AI pre-check result; always advisory, never a decision"/>
+        <FIELD NAME="timesubmitted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Submission timestamp"/>
+        <FIELD NAME="timedecided" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Curation decision timestamp; zero while undecided"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="author_fk" TYPE="foreign" FIELDS="authorid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="curator_fk" TYPE="foreign" FIELDS="curatorid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="root_uix" UNIQUE="true" FIELDS="rootid"/>
+        <INDEX NAME="quiz_state_idx" UNIQUE="false" FIELDS="quizgeistid, state, timesubmitted"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_workshop_ratings" COMMENT="Peer ratings of a workshop submission; one rating per learner and submission, enforced by a unique index">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="workshopid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Rated workshop submission"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Rating learner"/>
+        <FIELD NAME="quality" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Perceived quality from one to five"/>
+        <FIELD NAME="difficulty" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Perceived difficulty from one to five"/>
+        <FIELD NAME="comment" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Plain-text peer comment"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="workshop_fk" TYPE="foreign" FIELDS="workshopid" REFTABLE="quizgeist_workshop" REFFIELDS="id"/>
+        <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="workshop_user_uix" UNIQUE="true" FIELDS="workshopid, userid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_clips" COMMENT="Short audio clips (U3). The audio itself lives in the clipaudio file area; this row is its bookkeeping and, once the retention task ran, its only remains">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning Quizgeist activity"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Recording user"/>
+        <FIELD NAME="answerid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Bound live or self-study answer; null while the clip is still unbound"/>
+        <FIELD NAME="purpose" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="answer" SEQUENCE="false" COMMENT="answer, reason, speaking or dictation"/>
+        <FIELD NAME="itemid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Item ID inside the clipaudio file area"/>
+        <FIELD NAME="durationms" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Duration read server-side from the container, never taken from a client field"/>
+        <FIELD NAME="bytes" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Stored size in bytes"/>
+        <FIELD NAME="language" TYPE="char" LENGTH="8" NOTNULL="true" DEFAULT="de" SEQUENCE="false" COMMENT="Requested recognition language; carried through so a multilingual service later is configuration, not a rebuild (E-12)"/>
+        <FIELD NAME="transcript" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Plain-text transcript; outlives the audio on purpose"/>
+        <FIELD NAME="transcriptstate" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="none" SEQUENCE="false" COMMENT="none, pending, done, failed or declined"/>
+        <FIELD NAME="transcriptcode" TYPE="char" LENGTH="32" NOTNULL="false" SEQUENCE="false" COMMENT="Machine code for diagnosis; never rendered directly (F16)"/>
+        <FIELD NAME="audiodeleted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Time at which the retention task removed the audio; zero while it is still there"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="answer_fk" TYPE="foreign-unique" FIELDS="answerid" REFTABLE="quizgeist_answers" REFFIELDS="id" COMMENT="A clip belongs to at most one answer; the key enforces it, not the application logic"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="quiz_user_idx" UNIQUE="false" FIELDS="quizgeistid, userid"/>
+        <INDEX NAME="state_idx" UNIQUE="false" FIELDS="transcriptstate, timecreated"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_curriculum_refs" COMMENT="LehrplanPLUS anchor of one question root (F10). Course content, not user data: it survives a course reset">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning Quizgeist activity"/>
+        <FIELD NAME="rootid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Question root ID; the anchor survives every later edit"/>
+        <FIELD NAME="subject" TYPE="char" LENGTH="100" NOTNULL="true" DEFAULT="" SEQUENCE="false" COMMENT="LehrplanPLUS subject key"/>
+        <FIELD NAME="grade" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Year group; zero when the draft was generated without curriculum grounding"/>
+        <FIELD NAME="variant" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="LehrplanPLUS variant"/>
+        <FIELD NAME="learningarea" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Learning area of the cited chunk"/>
+        <FIELD NAME="competency" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Competency expectation as plain text"/>
+        <FIELD NAME="citationurl" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Absolute LehrplanPLUS URL including its anchor fragment"/>
+        <FIELD NAME="chunkid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Originating local_planung chunk; purely diagnostic, never dereferenced"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="root_uix" UNIQUE="true" FIELDS="rootid"/>
+        <INDEX NAME="quiz_grade_idx" UNIQUE="false" FIELDS="quizgeistid, grade"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_cardsets" COMMENT="Printable answer-card set of one class (F11a). Course content, not user data: the sheet a teacher printed survives a course reset">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning Quizgeist activity"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" DEFAULT="" SEQUENCE="false" COMMENT="Teacher-facing set name, usually the class"/>
+        <FIELD NAME="layout" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="abcd" SEQUENCE="false" COMMENT="abcd, abcdef or truefalse"/>
+        <FIELD NAME="seed" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="" SEQUENCE="false" COMMENT="Deterministic code seed; a reprint yields the SAME cards"/>
+        <FIELD NAME="createdby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Teacher who created the set; released on course reset"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="createdby_fk" TYPE="foreign" FIELDS="createdby" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_cards" COMMENT="One printed card of one set (F11a). userid null means a reserve card for a guest">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="cardsetid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning card set"/>
+        <FIELD NAME="cardindex" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Zero-based position inside the set; the code is derived from it and print order follows it"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Card holder; null marks a reserve card"/>
+        <FIELD NAME="cardcode" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="" SEQUENCE="false" COMMENT="Error-detecting code printed on the card"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="cardset_fk" TYPE="foreign" FIELDS="cardsetid" REFTABLE="quizgeist_cardsets" REFFIELDS="id"/>
+        <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="set_code_uix" UNIQUE="true" FIELDS="cardsetid, cardcode" COMMENT="A code identifies at most one card of a set; the index enforces it, not the application logic"/>
+        <INDEX NAME="set_user_idx" UNIQUE="false" FIELDS="cardsetid, userid"/>
+        <INDEX NAME="set_index_uix" UNIQUE="true" FIELDS="cardsetid, cardindex"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_card_scans" COMMENT="One camera scan of one live question (F11a). Volatile raw data: the picture lives in the cardscan file area, is never served through quizgeist_pluginfile() and is deleted as soon as the scan is evaluated (E-10)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning Quizgeist activity; carried so the retention task can resolve a context without joining sessions"/>
+        <FIELD NAME="sessionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Live session the scan belongs to"/>
+        <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Exactly one question per scan"/>
+        <FIELD NAME="visit" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="" SEQUENCE="false" COMMENT="Opaque live question visit token"/>
+        <FIELD NAME="cardsetid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Card set the codes are looked up in"/>
+        <FIELD NAME="scannedby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Teacher who took the photograph"/>
+        <FIELD NAME="itemid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Item ID inside the cardscan file area; equals the scan ID"/>
+        <FIELD NAME="state" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="pending" SEQUENCE="false" COMMENT="pending, recognised, confirmed, failed or discarded"/>
+        <FIELD NAME="reasoncode" TYPE="char" LENGTH="32" NOTNULL="false" SEQUENCE="false" COMMENT="Machine code for diagnosis; never rendered directly (F16)"/>
+        <FIELD NAME="resultjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Validated recognition result as JSON list of {cardcode, answerKey, confidence, box}"/>
+        <FIELD NAME="recognised" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Cards accepted by the plugin's own boundary; never larger than expected"/>
+        <FIELD NAME="expected" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Cards of the set that could have appeared"/>
+        <FIELD NAME="imagedeleted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Time at which the picture was removed; zero while it is still there. This column is what makes the deletion provable"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last modification timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="session_fk" TYPE="foreign" FIELDS="sessionid" REFTABLE="quizgeist_sessions" REFFIELDS="id"/>
+        <KEY NAME="question_fk" TYPE="foreign" FIELDS="questionid" REFTABLE="quizgeist_questions" REFFIELDS="id"/>
+        <KEY NAME="cardset_fk" TYPE="foreign" FIELDS="cardsetid" REFTABLE="quizgeist_cardsets" REFFIELDS="id"/>
+        <KEY NAME="scannedby_fk" TYPE="foreign" FIELDS="scannedby" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="session_question_idx" UNIQUE="false" FIELDS="sessionid, questionid, visit"/>
+        <INDEX NAME="state_idx" UNIQUE="false" FIELDS="state, timemodified"/>
+        <INDEX NAME="quiz_image_idx" UNIQUE="false" FIELDS="quizgeistid, imagedeleted"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="quizgeist_stage_reports" COMMENT="One stage-check report (F13). Metrics only: neither the video nor a single raw body landmark ever reaches this row, because neither ever leaves the device">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Standard Moodle primary key"/>
+        <FIELD NAME="quizgeistid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Owning Quizgeist activity"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Presenting learner"/>
+        <FIELD NAME="questionid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Exact question version presented; a report is the snapshot of a performance, like an answer, and therefore hangs on the version and not on the root"/>
+        <FIELD NAME="answerid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Answer the presentation belonged to; null for a slide, which carries no answer"/>
+        <FIELD NAME="durationsecs" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Presentation length in whole seconds, server-validated to 0..3600"/>
+        <FIELD NAME="metricsjson" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Rebuilt, schema-safe body-language metrics; never the client JSON as it arrived"/>
+        <FIELD NAME="aiused" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Zero for the shipped rule-based coach; reserved so a later AI coach needs no migration"/>
+        <FIELD NAME="feedbackjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Ordered list of message CODES derived server-side from the metrics; codes become sentences at render time (F16)"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Creation timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizgeist_fk" TYPE="foreign" FIELDS="quizgeistid" REFTABLE="quizgeist" REFFIELDS="id"/>
+        <KEY NAME="user_fk" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="question_fk" TYPE="foreign" FIELDS="questionid" REFTABLE="quizgeist_questions" REFFIELDS="id"/>
+        <KEY NAME="answer_fk" TYPE="foreign" FIELDS="answerid" REFTABLE="quizgeist_answers" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="quiz_user_idx" UNIQUE="false" FIELDS="quizgeistid, userid"/>
+      </INDEXES>
+    </TABLE>
+
+  </TABLES>
+</XMLDB>

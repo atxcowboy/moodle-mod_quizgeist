@@ -1,0 +1,8 @@
+{
+    "subplugintypes": {
+        "quizgeistaddon": "addon"
+    },
+    "plugintypes": {
+        "quizgeistaddon": "mod/quizgeist/addon"
+    }
+}

@@ -1,0 +1,49 @@
+/* App UI is route-scoped and loaded from styles_app.css by view.php. */
+
+.path-mod-quizgeist .quizgeist-kahoot-report {
+    margin-block: 0.75rem;
+    border: 1px solid #d9e3ea;
+    border-radius: 0.75rem;
+    background: #fff;
+    overflow: clip;
+}
+
+.path-mod-quizgeist .quizgeist-kahoot-report > summary {
+    padding: 0.9rem 1rem;
+    cursor: pointer;
+    background: #f4f8fa;
+}
+
+.path-mod-quizgeist .quizgeist-kahoot-report > table {
+    margin: 1rem;
+    width: calc(100% - 2rem);
+}
+
+.path-mod-quizgeist .quizgeist-topia-roadmap {
+    display: grid;
+    gap: 0.75rem;
+    max-width: 48rem;
+    margin: 1.5rem 0;
+    padding: 0;
+    list-style: none;
+}
+
+.path-mod-quizgeist .quizgeist-topia-roadmap > li {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding: 1rem 1.125rem;
+    border: 2px solid #c7d4dc;
+    border-radius: 1rem;
+}
+
+.path-mod-quizgeist .quizgeist-topia-roadmap > .is-unlocked {
+    border-color: #f5b547;
+    background: #fff8df;
+}
+
+.path-mod-quizgeist .quizgeist-topia-roadmap > .is-locked {
+    color: #526570;
+    background: #edf2f5;
+}

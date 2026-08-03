@@ -1,0 +1,428 @@
+/*
+ * Quizgeist Design-Tokens (mod_quizgeist)
+ * Quelle der Wahrheit: DESIGN.md — bei Änderungen beide Dateien synchron halten.
+ * Alle Custom Properties sind im Namensraum --mq- gehalten, um Kollisionen mit
+ * Moodle-Core-CSS und Tailwind-Utilities zu vermeiden.
+ *
+ * Struktur-Tokens (Typo/Radius/Spacing/Animation) sind themenübergreifend gleich und
+ * stehen nur am Quizgeist-Root. Farb-Tokens werden pro Motiv am selben Root überschrieben;
+ * Basis-/Fallback-Werte (Motiv "hell") gelten auch ohne gesetztes Theme-Attribut.
+ *
+ * Einbindung: in styles.css importieren, Motiv am App-Container aktivieren via
+ * root.dataset.quizgeistTheme = "dunkel" | "weltraum" | "ozean" |
+ * "retro-arcade" | "jahreszeiten" | "hell". Für "jahreszeiten" zusätzlich
+ * data-quizgeist-season = "herbst" | "winter" | "fruehling" | "sommer" setzen.
+ */
+
+[data-quizgeist-root] {
+  /* ---------- Typografie ---------- */
+  --mq-font-system: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mq-font-rounded: ui-rounded, 'SF Pro Rounded', 'Segoe UI Rounded', var(--mq-font-system);
+  --mq-font-display: 'Sora', 'Poppins', var(--mq-font-rounded);
+  --mq-font-heading: 'Poppins', 'Sora', var(--mq-font-system);
+  --mq-font-body: 'Inter', var(--mq-font-system);
+  --mq-font-playful: 'Rubik', var(--mq-font-rounded);
+
+  --mq-text-xs: 0.75rem;
+  --mq-text-sm: 0.875rem;
+  --mq-text-base: 1rem;
+  --mq-text-lg: 1.125rem;
+  --mq-text-xl: 1.375rem;
+  --mq-text-2xl: 1.75rem;
+  --mq-text-3xl: 2.25rem;
+  --mq-text-4xl: 3rem;
+  --mq-text-5xl: 4rem;
+  --mq-text-6xl: 5.5rem;
+  --mq-text-7xl: 8rem;
+
+  --mq-leading-tight: 1.0;
+  --mq-leading-snug: 1.25;
+  --mq-leading-normal: 1.55;
+  --mq-leading-relaxed: 1.65;
+
+  --mq-tracking-tight: -0.02em;
+  --mq-tracking-normal: 0;
+  --mq-tracking-wide: 0.08em;
+
+  /* ---------- Radius ---------- */
+  --mq-radius-xs: 6px;
+  --mq-radius-sm: 10px;
+  --mq-radius-md: 16px;
+  --mq-radius-lg: 24px;
+  --mq-radius-xl: 32px;
+  --mq-radius-pill: 999px;
+  --mq-radius-blob: 42% 58% 55% 45% / 45% 40% 60% 55%;
+
+  /* ---------- Spacing (4px-Raster) ---------- */
+  --mq-space-0: 0;
+  --mq-space-1: 0.25rem;
+  --mq-space-2: 0.5rem;
+  --mq-space-3: 0.75rem;
+  --mq-space-4: 1rem;
+  --mq-space-5: 1.5rem;
+  --mq-space-6: 2rem;
+  --mq-space-7: 3rem;
+  --mq-space-8: 4rem;
+  --mq-space-9: 6rem;
+  --mq-space-10: 8rem;
+
+  /* ---------- Animation ---------- */
+  --mq-dur-instant: 100ms;
+  --mq-dur-fast: 160ms;
+  --mq-dur-base: 220ms;
+  --mq-dur-slow: 400ms;
+  --mq-dur-slower: 700ms;
+  --mq-ease-standard: cubic-bezier(.4,0,.2,1);
+  --mq-ease-out-back: cubic-bezier(.34,1.56,.64,1);
+  --mq-ease-bounce: cubic-bezier(.68,-.55,.27,1.55);
+  --mq-ease-linear: linear;
+
+  /* ---------- Markenfarben-Skalen (themenunabhängig, siehe DESIGN.md 2.1.2) ---------- */
+  --mq-color-funke-50: #FEF0EC;
+  --mq-color-funke-100: #FCDACF;
+  --mq-color-funke-200: #FFA889;
+  --mq-color-funke-300: #F58766;
+  --mq-color-funke-400: #F15627;
+  --mq-color-funke-500: #F04410;
+  --mq-color-funke-600: #C9390D; /* Kontrast vs. Weiß: 5,16:1 */
+  --mq-color-funke-700: #A32E0A;
+  --mq-color-funke-800: #7D2308;
+  --mq-color-funke-900: #561806;
+
+  --mq-color-tiefsee-50: #E1F7FA;
+  --mq-color-tiefsee-100: #BEEEF4;
+  --mq-color-tiefsee-200: #7DDDE8;
+  --mq-color-tiefsee-300: #49D0DF;
+  --mq-color-tiefsee-400: #23B7C7;
+  --mq-color-tiefsee-500: #1C8F9C;
+  --mq-color-tiefsee-600: #156F79; /* Kontrast vs. Weiß: 5,86:1 */
+  --mq-color-tiefsee-700: #115860;
+  --mq-color-tiefsee-800: #0C4045;
+  --mq-color-tiefsee-900: #08282B;
+
+  --mq-color-honig-50: #FAF5E7;
+  --mq-color-honig-100: #FCE6C0;
+  --mq-color-honig-200: #F8CD81;
+  --mq-color-honig-300: #F5B547;
+  --mq-color-honig-400: #F29E0D;
+  --mq-color-honig-500: #C27E0A;
+  --mq-color-honig-600: #996408; /* Kontrast vs. Weiß: 4,93:1 - Marge knapp, <14px Stufe 700 nutzen */
+  --mq-color-honig-700: #794F06;
+  --mq-color-honig-800: #573905;
+  --mq-color-honig-900: #3A2603;
+
+  --mq-color-beere-50: #FBEEF6;
+  --mq-color-beere-100: #F5D1E6;
+  --mq-color-beere-200: #EA9ECB;
+  --mq-color-beere-300: #E06CAF;
+  --mq-color-beere-400: #D63D96;
+  --mq-color-beere-500: #B9277C;
+  --mq-color-beere-600: #931F63; /* Kontrast vs. Weiß: 8,03:1 */
+  --mq-color-beere-700: #72184C;
+  --mq-color-beere-800: #501136;
+  --mq-color-beere-900: #320B22;
+
+  --mq-color-trieb-600: #257E46;   /* Erfolg/Grün, Kontrast vs. Weiß: 5,06:1 */
+  --mq-color-trieb-100: #DCF3E3;
+  --mq-color-trieb-700: #1C5F35;
+
+  --mq-color-alarm-600: #BF2318;   /* Fehler/Rot - NUR destruktive Aktionen, nie "falsch geantwortet" */
+  --mq-color-alarm-100: #FBE1DE;
+  --mq-color-alarm-700: #8F1A11;
+
+  --mq-color-mitternacht-600: #4B358C; /* Kontrast vs. Weiß: 9,60:1 */
+  --mq-color-mitternacht-100: #E4DEF7;
+
+  /* ---------- Antwortformen-Zuordnung (siehe DESIGN.md 2.1.3) ---------- */
+  --mq-answer-a-color: var(--mq-color-funke-600);
+  --mq-answer-a-shape: polygon(50% 6%, 94% 92%, 6% 92%);           /* Dreieck */
+  --mq-answer-b-color: var(--mq-color-tiefsee-600);
+  --mq-answer-b-shape: polygon(50% 2%,93% 26%,93% 74%,50% 98%,7% 74%,7% 26%); /* Sechseck */
+  --mq-answer-c-color: var(--mq-color-honig-600);
+  --mq-answer-c-shape: circle(46% at 50% 50%);                      /* Kreis */
+  --mq-answer-d-color: var(--mq-color-beere-600);
+  --mq-answer-d-shape: polygon(50% 2%, 98% 50%, 50% 98%, 2% 50%);   /* Raute */
+  --mq-answer-e-color: var(--mq-color-trieb-600);
+  --mq-answer-e-shape: polygon(50% 0%,63% 35%,100% 38%,72% 61%,82% 98%,50% 77%,18% 98%,28% 61%,0% 38%,37% 35%); /* Stern */
+  --mq-answer-f-color: var(--mq-color-mitternacht-600);
+  --mq-answer-f-shape: polygon(50% 2%, 95% 38%, 78% 96%, 22% 96%, 5% 38%); /* Fünfeck */
+
+  /* ---------- Motiv "hell" (Default/Fallback) ---------- */
+  --mq-color-canvas: #F7F5F2;
+  --mq-color-surface: #FFFFFF;
+  --mq-color-surface-raised: #FFFFFF;
+  --mq-color-border: #E4E1DA;
+  --mq-color-ink-900: #1B1B1F;
+  --mq-color-ink-700: #4B4D55;
+  --mq-color-ink-500: #4B4D55;
+  --mq-color-ink-300: #D7D5D0;
+  /* [P11-E12] Etikettfarbe der hellen Themen: Stufe 700 statt 600.
+     DESIGN.md 2.1.2 prueft Funke 600 gegen WEISS (5,16:1). Die
+     Etiketten sitzen aber auf den warm getoenten Flaechen des
+     Produkts, und dort faellt 600 auf 4,03-4,74:1 — unter die 4,5
+     der kleinen Schrift (Kicker 14px/750, Eyebrow 12px/700).
+     Stufe 700 haelt auf jeder gemessenen Flaeche 5,56-7,11:1. */
+  --mq-color-label: var(--mq-color-funke-700);
+  --mq-color-surface-solid: #FFFFFF;
+  --mq-color-on-strong: #FFFFFF;
+  --mq-color-scrim: rgba(27,20,15,.58);
+  --mq-color-space-canvas: #101218;
+  --mq-color-space-accent: #4B358C;
+
+  --mq-color-btn-primary-bg: var(--mq-color-funke-600);
+  --mq-color-btn-primary-text: #FFFFFF;
+
+  --mq-shadow-xs: 0 1px 2px rgba(27,20,15,.06);
+  --mq-shadow-sm: 0 2px 6px rgba(27,20,15,.08);
+  --mq-shadow-md: 0 8px 20px rgba(27,20,15,.10), 0 2px 6px rgba(27,20,15,.06);
+  --mq-shadow-lg: 0 16px 40px rgba(27,20,15,.14), 0 4px 10px rgba(27,20,15,.08);
+  --mq-shadow-glow-funke: 0 0 0 4px rgba(240,68,16,.25);
+  --mq-shadow-glow-tiefsee: 0 0 0 4px rgba(28,143,156,.25);
+  --mq-shadow-glow-honig: 0 0 0 4px rgba(194,126,10,.25);
+  --mq-shadow-glow-beere: 0 0 0 4px rgba(185,39,124,.25);
+
+  --mq-pattern-space: none;
+  --mq-pattern-waves: none;
+  --mq-pattern-scanlines: none;
+  --mq-pattern-season: none;
+  --mq-theme-pattern: none;
+  --mq-glow-text: none;
+}
+
+/* Motiv "hell" explizit (identisch zu :root-Default; für ausdrückliche Auswahl) */
+[data-quizgeist-root][data-quizgeist-theme="hell"] {
+  --mq-color-canvas: #F7F5F2;
+  --mq-color-surface: #FFFFFF;
+  --mq-color-surface-raised: #FFFFFF;
+  --mq-color-border: #E4E1DA;
+  --mq-color-ink-900: #1B1B1F;
+  --mq-color-ink-700: #4B4D55;
+  --mq-color-ink-500: #4B4D55;
+  --mq-color-ink-300: #D7D5D0;
+  /* [P11-E12] Etikettfarbe der hellen Themen: Stufe 700 statt 600.
+     DESIGN.md 2.1.2 prueft Funke 600 gegen WEISS (5,16:1). Die
+     Etiketten sitzen aber auf den warm getoenten Flaechen des
+     Produkts, und dort faellt 600 auf 4,03-4,74:1 — unter die 4,5
+     der kleinen Schrift (Kicker 14px/750, Eyebrow 12px/700).
+     Stufe 700 haelt auf jeder gemessenen Flaeche 5,56-7,11:1. */
+  --mq-color-label: var(--mq-color-funke-700);
+  --mq-color-surface-solid: #FFFFFF;
+  --mq-color-scrim: rgba(27,20,15,.58);
+  --mq-color-btn-primary-bg: var(--mq-color-funke-600);
+  --mq-color-btn-primary-text: #FFFFFF;
+  --mq-shadow-glow-active: var(--mq-shadow-glow-funke);
+  --mq-pattern-space: none;
+  --mq-pattern-waves: none;
+  --mq-pattern-scanlines: none;
+  --mq-glow-text: none;
+}
+
+/* ---------- Motiv "dunkel" ---------- */
+[data-quizgeist-root][data-quizgeist-theme="dunkel"] {
+  --mq-color-canvas: #101218;
+  --mq-color-surface: #1B1E27;
+  --mq-color-surface-raised: #232733;
+  --mq-color-border: #333846;
+  --mq-color-ink-900: #F4F2ED;
+  --mq-color-ink-700: #C7C9D1;
+  --mq-color-ink-500: #8D909C;
+  --mq-color-ink-300: #454A59;
+  --mq-color-label: var(--mq-color-funke-400);
+  --mq-color-surface-solid: #232733;
+  --mq-color-scrim: rgba(0,0,0,.72);
+
+  /* Buttons/große Flächen: Stufe 500 fuer mehr Strahlkraft vor dunklem Grund.
+     Achtung: Stufe 500 hat NIEDRIGEREN Weiss-Kontrast als 600 - nur fuer
+     Icon-only-Buttons oder Text >= 24px verwenden, sonst Stufe 600 beibehalten. */
+  --mq-color-btn-primary-bg: var(--mq-color-funke-500);
+  --mq-color-btn-primary-text: #FFFFFF;
+
+  --mq-shadow-xs: 0 1px 2px rgba(0,0,0,.35);
+  --mq-shadow-sm: 0 2px 8px rgba(0,0,0,.4);
+  --mq-shadow-md: 0 8px 24px rgba(0,0,0,.5);
+  --mq-shadow-lg: 0 16px 48px rgba(0,0,0,.6);
+  --mq-shadow-glow-funke: 0 0 24px rgba(241,86,39,.45);
+  --mq-shadow-glow-tiefsee: 0 0 24px rgba(35,183,199,.45);
+  --mq-shadow-glow-honig: 0 0 24px rgba(242,158,13,.45);
+  --mq-shadow-glow-beere: 0 0 24px rgba(214,61,150,.45);
+  --mq-shadow-glow-active: var(--mq-shadow-glow-funke);
+}
+
+/* ---------- Motiv "weltraum" ---------- */
+[data-quizgeist-root][data-quizgeist-theme="weltraum"] {
+  --mq-color-canvas: #0B0C1E;
+  --mq-color-surface: #161A33;
+  --mq-color-surface-raised: #1E2340;
+  --mq-color-border: #33396B;
+  --mq-color-ink-900: #F4F2ED;
+  --mq-color-ink-700: #C6C9E6;
+  --mq-color-ink-500: #8D91B8;
+  --mq-color-ink-300: #3A4070;
+  --mq-color-label: var(--mq-color-funke-400);
+  --mq-color-surface-solid: #1E2340;
+  --mq-color-scrim: rgba(0,0,0,.76);
+
+  --mq-color-btn-primary-bg: var(--mq-color-funke-500);
+  --mq-color-btn-primary-text: #FFFFFF;
+
+  --mq-shadow-xs: 0 1px 2px rgba(0,0,0,.4);
+  --mq-shadow-sm: 0 2px 8px rgba(0,0,0,.45);
+  --mq-shadow-md: 0 8px 24px rgba(0,0,0,.55);
+  --mq-shadow-lg: 0 16px 48px rgba(0,0,0,.65);
+  --mq-shadow-glow-funke: 0 0 24px rgba(241,86,39,.5);
+  --mq-shadow-glow-tiefsee: 0 0 28px rgba(73,208,223,.55);
+  --mq-shadow-glow-honig: 0 0 24px rgba(242,158,13,.5);
+  --mq-shadow-glow-beere: 0 0 24px rgba(214,61,150,.5);
+  --mq-shadow-glow-active: var(--mq-shadow-glow-tiefsee);
+
+  /* Sternfeld: mehrere kleine radiale Punkte, rein CSS-generiert (kein Bitmap) */
+  --mq-pattern-space:
+    radial-gradient(1.5px 1.5px at 10% 15%, rgba(255,255,255,.9) 50%, transparent 51%),
+    radial-gradient(1px 1px at 25% 45%, rgba(255,255,255,.7) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 40% 10%, rgba(255,255,255,.8) 50%, transparent 51%),
+    radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,.6) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 75% 30%, rgba(255,255,255,.9) 50%, transparent 51%),
+    radial-gradient(1px 1px at 85% 80%, rgba(255,255,255,.7) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 92% 55%, rgba(255,255,255,.85) 50%, transparent 51%),
+    radial-gradient(1px 1px at 15% 85%, rgba(255,255,255,.6) 50%, transparent 51%);
+  --mq-pattern-space-size: 100% 100%;
+  --mq-theme-pattern: var(--mq-pattern-space);
+}
+
+/* ---------- Motiv "ozean" ---------- */
+[data-quizgeist-root][data-quizgeist-theme="ozean"] {
+  --mq-color-canvas: #07242B;
+  --mq-color-surface: #0E3A44;
+  --mq-color-surface-raised: #124655;
+  --mq-color-border: #1E5C68;
+  --mq-color-ink-900: #EAF6F6;
+  --mq-color-ink-700: #B7DCE0;
+  --mq-color-ink-500: #7FB0B8;
+  --mq-color-ink-300: #1E5C68;
+  --mq-color-label: var(--mq-color-funke-400);
+  --mq-color-surface-solid: #124655;
+  --mq-color-scrim: rgba(0,0,0,.7);
+
+  --mq-color-btn-primary-bg: var(--mq-color-tiefsee-400);
+  --mq-color-btn-primary-text: #052026;
+
+  --mq-shadow-xs: 0 1px 2px rgba(0,0,0,.35);
+  --mq-shadow-sm: 0 2px 8px rgba(0,0,0,.4);
+  --mq-shadow-md: 0 8px 24px rgba(0,0,0,.5);
+  --mq-shadow-lg: 0 16px 48px rgba(0,0,0,.6);
+  --mq-shadow-glow-funke: 0 0 20px rgba(241,86,39,.4);
+  --mq-shadow-glow-tiefsee: 0 0 24px rgba(73,208,223,.5);
+  --mq-shadow-glow-honig: 0 0 20px rgba(242,158,13,.4);
+  --mq-shadow-glow-beere: 0 0 20px rgba(214,61,150,.4);
+  --mq-shadow-glow-active: var(--mq-shadow-glow-tiefsee);
+
+  /* Wellenmuster: wiederholender Daten-URI, sanfte Sinuslinien in Tiefsee-800 */
+  --mq-pattern-waves: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='24' viewBox='0 0 120 24'%3E%3Cpath d='M0 12 Q15 0 30 12 T60 12 T90 12 T120 12' fill='none' stroke='%230C4045' stroke-width='2' opacity='0.35'/%3E%3C/svg%3E");
+  --mq-theme-pattern: var(--mq-pattern-waves);
+}
+
+/* ---------- Motiv "retro-arcade" ---------- */
+[data-quizgeist-root][data-quizgeist-theme="retro-arcade"] {
+  --mq-color-canvas: #0A0A0C;
+  --mq-color-surface: #151519;
+  --mq-color-surface-raised: #1C1C22;
+  --mq-color-border: #333340;
+  --mq-color-ink-900: #F4F2ED;
+  --mq-color-ink-700: #C7C7D1;
+  --mq-color-ink-500: #86869a;
+  --mq-color-ink-300: #333340;
+  --mq-color-label: var(--mq-color-funke-400);
+  --mq-color-surface-solid: #1C1C22;
+  --mq-color-scrim: rgba(0,0,0,.78);
+
+  --mq-color-btn-primary-bg: var(--mq-color-funke-400);
+  --mq-color-btn-primary-text: #0A0A0C;
+
+  /* Pixel-Ecken: kleinere/kantigere Radien ueberschreiben die Basiswerte */
+  --mq-radius-md: 6px;
+  --mq-radius-lg: 8px;
+  --mq-radius-xl: 10px;
+
+  --mq-font-display: 'Pathway Gothic One', 'Sora', 'Arial Narrow', 'Roboto Condensed', var(--mq-font-system);
+
+  --mq-shadow-xs: 0 0 0 rgba(0,0,0,0);
+  --mq-shadow-sm: 0 0 8px rgba(241,86,39,.25);
+  --mq-shadow-md: 0 0 16px rgba(241,86,39,.3);
+  --mq-shadow-lg: 0 0 28px rgba(241,86,39,.35);
+  /* Neon-Glow ist hier IMMER aktiv, nicht nur bei Fokus */
+  --mq-shadow-glow-funke: 0 0 18px rgba(241,86,39,.75);
+  --mq-shadow-glow-tiefsee: 0 0 18px rgba(73,208,223,.75);
+  --mq-shadow-glow-honig: 0 0 18px rgba(242,158,13,.75);
+  --mq-shadow-glow-beere: 0 0 18px rgba(214,61,150,.75);
+  --mq-shadow-glow-active: var(--mq-shadow-glow-funke);
+
+  --mq-glow-text: 0 0 8px currentColor;
+
+  /* CRT-Scanlines: sehr niedrige Deckkraft, 2px Streifenabstand */
+  --mq-pattern-scanlines: repeating-linear-gradient(
+    0deg, rgba(255,255,255,.04) 0px, rgba(255,255,255,.04) 1px,
+    transparent 1px, transparent 2px
+  );
+  --mq-theme-pattern: var(--mq-pattern-scanlines);
+}
+
+/* ---------- Motiv "jahreszeiten" (Basis = hell + Saison-Unterattribut) ---------- */
+[data-quizgeist-root][data-quizgeist-theme="jahreszeiten"] {
+  --mq-color-canvas: #F7F5F2;
+  --mq-color-surface: #FFFFFF;
+  --mq-color-surface-raised: #FFFFFF;
+  --mq-color-border: #E4E1DA;
+  --mq-color-ink-900: #1B1B1F;
+  --mq-color-ink-700: #4B4D55;
+  --mq-color-ink-500: #4B4D55;
+  --mq-color-ink-300: #D7D5D0;
+  /* [P11-E12] Etikettfarbe der hellen Themen: Stufe 700 statt 600.
+     DESIGN.md 2.1.2 prueft Funke 600 gegen WEISS (5,16:1). Die
+     Etiketten sitzen aber auf den warm getoenten Flaechen des
+     Produkts, und dort faellt 600 auf 4,03-4,74:1 — unter die 4,5
+     der kleinen Schrift (Kicker 14px/750, Eyebrow 12px/700).
+     Stufe 700 haelt auf jeder gemessenen Flaeche 5,56-7,11:1. */
+  --mq-color-label: var(--mq-color-funke-700);
+  --mq-color-surface-solid: #FFFFFF;
+  --mq-color-scrim: rgba(27,20,15,.58);
+  --mq-color-btn-primary-bg: var(--mq-color-funke-600);
+  --mq-color-btn-primary-text: #FFFFFF;
+  --mq-shadow-glow-active: var(--mq-shadow-glow-funke);
+}
+
+[data-quizgeist-root][data-quizgeist-theme="jahreszeiten"][data-quizgeist-season="herbst"] {
+  --mq-color-canvas: #F7EFE4;
+  --mq-pattern-season: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M32 8c10 6 16 16 12 28-3 8-13 10-16 2-3 8-13 6-16-2-4-12 6-22 20-28z' fill='%23F5B547' opacity='0.18'/%3E%3C/svg%3E");
+  --mq-theme-pattern: var(--mq-pattern-season);
+}
+[data-quizgeist-root][data-quizgeist-theme="jahreszeiten"][data-quizgeist-season="winter"] {
+  --mq-color-canvas: #EEF4F6;
+  --mq-pattern-season: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg stroke='%2349D0DF' stroke-width='2' opacity='0.22'%3E%3Cline x1='32' y1='10' x2='32' y2='54'/%3E%3Cline x1='10' y1='32' x2='54' y2='32'/%3E%3Cline x1='16' y1='16' x2='48' y2='48'/%3E%3Cline x1='48' y1='16' x2='16' y2='48'/%3E%3C/g%3E%3C/svg%3E");
+  --mq-theme-pattern: var(--mq-pattern-season);
+}
+[data-quizgeist-root][data-quizgeist-theme="jahreszeiten"][data-quizgeist-season="fruehling"] {
+  --mq-color-canvas: #F2F7EC;
+  --mq-pattern-season: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='%23D63D96' opacity='0.16'%3E%3Ccircle cx='32' cy='20' r='7'/%3E%3Ccircle cx='20' cy='32' r='7'/%3E%3Ccircle cx='44' cy='32' r='7'/%3E%3Ccircle cx='32' cy='44' r='7'/%3E%3C/g%3E%3C/svg%3E");
+  --mq-theme-pattern: var(--mq-pattern-season);
+}
+[data-quizgeist-root][data-quizgeist-theme="jahreszeiten"][data-quizgeist-season="sommer"] {
+  --mq-color-canvas: #FBF6E8;
+  --mq-pattern-season: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg stroke='%23F29E0D' stroke-width='2' opacity='0.2'%3E%3Ccircle cx='32' cy='32' r='10' fill='none'/%3E%3Cline x1='32' y1='4' x2='32' y2='14'/%3E%3Cline x1='32' y1='50' x2='32' y2='60'/%3E%3Cline x1='4' y1='32' x2='14' y2='32'/%3E%3Cline x1='50' y1='32' x2='60' y2='32'/%3E%3C/g%3E%3C/svg%3E");
+  --mq-theme-pattern: var(--mq-pattern-season);
+}
+
+/* ---------- Bewegungsreduktion (global, Pflichtumsetzung) ---------- */
+@media (prefers-reduced-motion: reduce) {
+  [data-quizgeist-root] {
+    --mq-dur-instant: 0ms;
+    --mq-dur-fast: 0ms;
+    --mq-dur-base: 120ms;
+    --mq-dur-slow: 150ms;
+    --mq-dur-slower: 200ms;
+  }
+  [data-quizgeist-root] .mq-anim-confetti-particle,
+  [data-quizgeist-root] .mq-anim-flame-idle,
+  [data-quizgeist-root] .mq-anim-countdown-tick {
+    animation: none !important;
+  }
+}

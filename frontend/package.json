@@ -1,0 +1,36 @@
+{
+  "name": "mod-quizgeist-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-contained frontend bundles for the Moodle activity Quizgeist.",
+  "scripts": {
+    "check:p13": "node ../../checks/p13_readiness.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "build:js": "node esbuild.config.mjs bundles",
+    "build:loader": "node esbuild.config.mjs loaders",
+    "build:css": "tailwindcss --postcss -c tailwind.config.cjs -i src/styles.css -o ../styles_app.css --minify",
+    "build:assets": "node scripts/copy-assets.mjs",
+    "build": "npm run check:p13 && npm run typecheck && npm run build:js && npm run build:loader && npm run build:css && npm run build:assets"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.14",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5",
+    "autoprefixer": "^10.4.21",
+    "esbuild": "^0.25.5",
+    "postcss": "^8.5.3",
+    "postcss-import": "^15.1.0",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "browserslist": [
+    "defaults",
+    "Safari >= 12",
+    "ie 11"
+  ]
+}
