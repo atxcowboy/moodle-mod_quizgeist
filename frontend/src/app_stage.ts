@@ -1,7 +1,7 @@
 /**
  * Entry point of the stage-check bundle (F13), owned by quizgeistaddon_buehne.
  *
- * The bundle is built into `addon/buehne/amd/build/app_stage.js` and is loaded
+ * The bundle is built into `addon/buehne/bundles/app_stage.js` and is loaded
  * ON DEMAND — only when a learner actually enters the stage sub-mode. Two
  * consequences, both intended:
  *

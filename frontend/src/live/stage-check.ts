@@ -4,7 +4,7 @@
  * This module renders three surfaces — `stage-setup`, `stage-live` and
  * `stage-report` — and owns the ONE JSON request the feature makes. It does
  * not contain any camera or analysis code: that lives in the addon bundle
- * `addon/buehne/amd/build/app_stage.js`, which is loaded on demand and which
+ * `addon/buehne/bundles/app_stage.js`, which is loaded on demand and which
  * has no network side at all.
  *
  * The split is the point. Everything that can talk to the server is here and

@@ -4,6 +4,25 @@ All notable, user-visible changes to Quizgeist are documented here. The
 changelog format follows [Keep a Changelog](https://keepachangelog.com/en/),
 and version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [1.2.0-rc.3] - 2026-09-18
+
+### Fixed
+
+- The Bühnen-Check bundle (`app_stage.js`) now lives in
+  `addon/buehne/bundles/` instead of `addon/buehne/amd/build/`. Moodle folds
+  every file under `amd/build` without a `.min.js` sibling into its site-wide
+  RequireJS bundle, so the 229 KB stage bundle was executed on every page of
+  the installation. The bundle is still loaded on demand only; the build
+  configuration, the loader path and the static gate follow the new location.
+
+## [1.2.0-rc.2] - 2026-08-03
+
+### Added
+
+- Optional WebSocket signal relay for live sessions. The relay carries only
+  wake-up signals, never session data; when it is unavailable, play continues
+  over the existing adaptive polling.
+
 ## [1.2.0-rc.1] - 2026-08-01
 
 ### Added

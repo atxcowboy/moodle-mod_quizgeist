@@ -34,17 +34,15 @@ const bundles = [
   // Platte — der Untermodus fehlt dann vollstaendig, statt gesperrt zu
   // erscheinen (P11_PLAN.md 2.6). Es wird ausserdem nur BEI BEDARF geladen,
   // damit das Spieler-Bundle nicht fuer alle um MediaPipe waechst.
+  // Ziel ist bewusst `bundles/`, NICHT `amd/build/`: Moodle sammelt jede
+  // Datei unter amd/build ohne .min.js-Geschwister in das seitenweite
+  // RequireJS-Paket ein — ein define-loses IIFE-Bundle liefe dann auf jeder
+  // Seite der Installation mit.
   {
     entryPoint: path.join(frontendDirectory, 'src', 'app_stage.ts'),
     globalName: 'QuizgeistStageApp',
     output: 'app_stage.js',
-    outputDirectory: path.join(
-      pluginDirectory,
-      'addon',
-      'buehne',
-      'amd',
-      'build',
-    ),
+    outputDirectory: path.join(pluginDirectory, 'addon', 'buehne', 'bundles'),
   },
 ];
 

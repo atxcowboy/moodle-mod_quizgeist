@@ -10,7 +10,7 @@ complete for the core loop **author → host a live round → review results**.
 There are no participant limits, no question limits, no time limits, no
 watermarks and no online activation.
 
-- **Version:** 1.2.0-rc.2
+- **Version:** 1.2.0-rc.3
 - **Requires:** Moodle 5.2 (`2026042000`) or newer
 - **Languages:** English and German, 1618 strings each
 

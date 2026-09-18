@@ -1620,7 +1620,7 @@ if ($route === 'play'
                 '/mod/quizgeist/addon/buehne/thirdparty/mediapipe'
             ))->out(false),
             'bundleUrl' => (new moodle_url(
-                '/mod/quizgeist/addon/buehne/amd/build/app_stage.js',
+                '/mod/quizgeist/addon/buehne/bundles/app_stage.js',
                 ['v' => $assetversion]
             ))->out(false),
             'maxSeconds' => \quizgeistaddon_buehne\local\stage_service::max_seconds(),

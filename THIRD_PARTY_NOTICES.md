@@ -64,7 +64,7 @@ Zeitpunkt ein CDN oder ein anderer fremder Host kontaktiert:
 | **Summe** | **39.532.375 (37,70 MiB)** |
 
 Dazu kommt der JavaScript-Anteil der Bibliothek im gebauten Bundle
-`addon/buehne/amd/build/app_stage.js`. Die Prüfsummen der sieben Dateien
+`addon/buehne/bundles/app_stage.js`. Die Prüfsummen der sieben Dateien
 stehen in `frontend/scripts/copy-assets.mjs` und werden bei jedem Bau sowie im
 statischen Tor (`clientNoMediaUpload`) nachgerechnet.
 
