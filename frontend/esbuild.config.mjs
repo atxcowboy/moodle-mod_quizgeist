@@ -5,7 +5,13 @@ import path from 'node:path';
 
 const frontendDirectory = path.dirname(fileURLToPath(import.meta.url));
 const pluginDirectory = path.resolve(frontendDirectory, '..');
+// amd/build/ holds only the named-define loaders (*.min.js). The IIFE app
+// bundles go to bundles/: Moodle maps amd/build/X.js and amd/build/X.min.js to
+// the same module name and packs whichever file it meets last into its
+// site-wide RequireJS bundle, so a bundle next to its loader can replace the
+// loader and would run on every page of the installation.
 const buildDirectory = path.join(pluginDirectory, 'amd', 'build');
+const bundleDirectory = path.join(pluginDirectory, 'bundles');
 const loaderDirectory = path.join(pluginDirectory, 'loader');
 
 const bundles = [
@@ -34,10 +40,7 @@ const bundles = [
   // Platte — der Untermodus fehlt dann vollstaendig, statt gesperrt zu
   // erscheinen (P11_PLAN.md 2.6). Es wird ausserdem nur BEI BEDARF geladen,
   // damit das Spieler-Bundle nicht fuer alle um MediaPipe waechst.
-  // Ziel ist bewusst `bundles/`, NICHT `amd/build/`: Moodle sammelt jede
-  // Datei unter amd/build ohne .min.js-Geschwister in das seitenweite
-  // RequireJS-Paket ein — ein define-loses IIFE-Bundle liefe dann auf jeder
-  // Seite der Installation mit.
+  // Auch hier gilt: `bundles/`, NICHT `amd/build/` (siehe oben).
   {
     entryPoint: path.join(frontendDirectory, 'src', 'app_stage.ts'),
     globalName: 'QuizgeistStageApp',
@@ -61,6 +64,7 @@ if (!validTargets.has(target)) {
 }
 
 await mkdir(buildDirectory, {recursive: true});
+await mkdir(bundleDirectory, {recursive: true});
 
 await Promise.all(
   bundles
@@ -74,7 +78,7 @@ if (target === 'all' || target === 'bundles') {
     bundles.map((bundle) => build({
       entryPoints: [bundle.entryPoint],
       outfile: path.join(
-        bundle.outputDirectory ?? buildDirectory,
+        bundle.outputDirectory ?? bundleDirectory,
         bundle.output,
       ),
       bundle: true,

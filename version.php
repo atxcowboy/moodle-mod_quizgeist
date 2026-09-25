@@ -17,7 +17,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'mod_quizgeist';
-$plugin->version = 2026091800;
+$plugin->version = 2026092500;
 $plugin->requires = 2026042000;
 $plugin->maturity = MATURITY_RC;
-$plugin->release = '1.2.0-rc.3';
+$plugin->release = '1.2.0-rc.4';

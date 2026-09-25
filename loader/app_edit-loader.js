@@ -24,7 +24,7 @@ define("mod_quizgeist/app_edit", [], function() {
         ? window.M.cfg.wwwroot
         : "";
 
-      script.src = wwwroot + "/mod/quizgeist/amd/build/" + bundleName + ".js";
+      script.src = wwwroot + "/mod/quizgeist/bundles/" + bundleName + ".js";
       script.async = true;
       script.dataset.quizgeistBundle = bundleName;
       script.onload = function() {

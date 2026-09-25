@@ -1698,9 +1698,11 @@ $config = $stageconfig + $cardconfig + $navigationconfig + [
     'clips' => $clipconfig,
     'strings' => $clientstrings,
 ];
-// Der RequireJS-Sammelcache dieses Servers liefert Plugin-Module unzuverlässig aus
-// (wechselnd je lsphp-Worker). Bundles werden deshalb als direkte Script-Tags
-// geladen und inline gebootet — Muster local_navordnung.
+// Die App-Bundles liegen in bundles/, nicht in amd/build/: Moodle bildet
+// amd/build/X.js und amd/build/X.min.js auf denselben Modulnamen ab, und je
+// nach Verzeichnisreihenfolge landete das Bundle statt des Loaders im
+// seitenweiten RequireJS-Paket (Loader fehlte, Bundle lief auf jeder Seite).
+// Sie werden als direkte Script-Tags geladen und inline gebootet.
 $quizgeistglobals = [
     'app_edit' => 'QuizgeistEditApp',
     'app_host' => 'QuizgeistHostApp',
@@ -1709,7 +1711,7 @@ $quizgeistglobals = [
 ];
 $quizgeistglobal = $quizgeistglobals[$bundle];
 $quizgeistbundleurl = new moodle_url(
-    '/mod/quizgeist/amd/build/' . $bundle . '.js',
+    '/mod/quizgeist/bundles/' . $bundle . '.js',
     ['v' => $assetversion]
 );
 

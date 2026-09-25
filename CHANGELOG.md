@@ -4,6 +4,19 @@ All notable, user-visible changes to Quizgeist are documented here. The
 changelog format follows [Keep a Changelog](https://keepachangelog.com/en/),
 and version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [1.2.0-rc.4] - 2026-09-25
+
+### Fixed
+
+- The four app bundles (`app_edit.js`, `app_host.js`, `app_play.js`,
+  `app_report.js`) now live in `bundles/` instead of `amd/build/`. Moodle maps
+  `amd/build/X.js` and `amd/build/X.min.js` to the same module name, so
+  depending on directory order the IIFE bundle replaced its named-define
+  loader in the site-wide RequireJS bundle: the loader went missing and up to
+  about 1 MB of Quizgeist code ran on every page of the installation. Only the
+  loaders stay in `amd/build/`; view.php, the loaders and the build
+  configuration follow the new location.
+
 ## [1.2.0-rc.3] - 2026-09-18
 
 ### Fixed
