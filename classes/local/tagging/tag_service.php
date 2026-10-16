@@ -141,6 +141,17 @@ final class tag_service {
             $errors,
             static fn(array $error): bool => $error['field'] !== 'scopeid'
         ));
+        // A site tag shows up in every Quizgeist activity of the school.
+        // mod/quizgeist:manage in one course is no mandate for that.
+        if (!self::can_write_scope($tag['scope'])) {
+            $errors[] = ['field' => 'scope', 'code' => 'forbidden'];
+        }
+        // The reserved "Neu" tag has exactly one way into the database:
+        // ensure_reserved_new_tag(). Through this upsert a teacher could
+        // otherwise rename it, or create a second one at course level.
+        if (tag_schema::is_reserved_new($tag['kind'], $tag['tagkey'])) {
+            $errors[] = ['field' => 'tagkey', 'code' => 'reserved'];
+        }
         if ($errors) {
             return ['tag' => $tag, 'validationErrors' => $errors];
         }
@@ -183,6 +194,72 @@ final class tag_service {
             $transaction->rollback($exception);
         }
         return ['tag' => $tag, 'validationErrors' => []];
+    }
+
+    /**
+     * Whether the current user may write tags of one scope.
+     *
+     * Activity and course tags belong to whoever may manage this activity
+     * (the dispatcher has already required mod/quizgeist:manage). A site tag
+     * appears in every Quizgeist activity of the school, so only the site
+     * administration may create, rename or delete one.
+     *
+     * @param string $scope Tag scope.
+     * @return bool
+     */
+    public static function can_write_scope(string $scope): bool {
+        if ($scope !== 'site') {
+            return true;
+        }
+        return has_capability('moodle/site:config', \context_system::instance());
+    }
+
+    /**
+     * Delete one tag together with every question assignment it carries.
+     *
+     * Only a tag this activity can see may be deleted: its own activity tags,
+     * the tags of its course, and site tags for the site administration. A
+     * course tag may hang on questions of several activities; its assignments
+     * are removed everywhere, because a dangling assignment would point at
+     * nothing. The reserved "Neu" tag belongs to the error-friendly mode and
+     * cannot be deleted.
+     *
+     * @param \stdClass $quizgeist Activity record.
+     * @param int $tagid Tag ID.
+     * @return array Read model of project_activity() plus validationErrors.
+     */
+    public static function delete_tag(\stdClass $quizgeist, int $tagid): array {
+        global $DB;
+
+        $tag = $tagid > 0 ? $DB->get_record('quizgeist_tags', ['id' => $tagid]) : false;
+        $visible = $tag !== false && (
+            ((string)$tag->scope === 'activity' && (int)$tag->scopeid === (int)$quizgeist->id)
+            || ((string)$tag->scope === 'course' && (int)$tag->scopeid === (int)$quizgeist->course)
+            || ((string)$tag->scope === 'site' && (int)$tag->scopeid === 0)
+        );
+        $code = null;
+        if (!$visible) {
+            $code = 'invalid';
+        } else if (tag_schema::is_reserved_new((string)$tag->kind, (string)$tag->tagkey)) {
+            $code = 'reserved';
+        } else if (!self::can_write_scope((string)$tag->scope)) {
+            $code = 'forbidden';
+        }
+        if ($code !== null) {
+            return self::project_activity($quizgeist) + [
+                'validationErrors' => [['field' => 'tagId', 'code' => $code]],
+            ];
+        }
+
+        $transaction = \mod_quizgeist\local\transaction_scope::begin();
+        try {
+            $DB->delete_records('quizgeist_question_tags', ['tagid' => (int)$tag->id]);
+            $DB->delete_records('quizgeist_tags', ['id' => (int)$tag->id]);
+            $transaction->allow_commit();
+        } catch (\Throwable $exception) {
+            $transaction->rollback($exception);
+        }
+        return self::project_activity($quizgeist) + ['validationErrors' => []];
     }
 
     /**

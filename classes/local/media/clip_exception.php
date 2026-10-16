@@ -82,7 +82,9 @@ final class clip_exception extends \moodle_exception {
      * @return string
      */
     public function get_error_code(): string {
-        return $this->errorcode;
+        // moodle_exception keeps the LANGUAGE KEY in $errorcode; the machine
+        // code lives in the promoted property (same shape as stage_exception).
+        return $this->clipcode;
     }
 
     /**
@@ -91,7 +93,7 @@ final class clip_exception extends \moodle_exception {
      * @return string
      */
     public function get_string_key(): string {
-        return self::MESSAGES[$this->errorcode];
+        return self::MESSAGES[$this->clipcode];
     }
 
     /**
@@ -100,7 +102,7 @@ final class clip_exception extends \moodle_exception {
      * @return int
      */
     public function get_http_status(): int {
-        return self::STATUSES[$this->errorcode] ?? 400;
+        return self::STATUSES[$this->clipcode] ?? 400;
     }
 
     /**

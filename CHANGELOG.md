@@ -4,6 +4,62 @@ All notable, user-visible changes to Quizgeist are documented here. The
 changelog format follows [Keep a Changelog](https://keepachangelog.com/en/),
 and version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [1.2.0-rc.5] - 2026-10-16
+
+### Added
+
+- Labels can now be created, renamed and deleted in the question editor:
+  a quick-create field next to the label checkboxes (this activity) and a
+  "Manage labels" dialog (activity or whole course, kinds topic, task type
+  and competence, optional curriculum reference for competences). The
+  server had the write path since 1.2.0-rc.1, but no screen called it, so
+  the competence report, interleaved practice and the error-friendly mode
+  had nothing to work with. New AJAX action `tag_delete`.
+- The reserved label "New" is created for every activity with
+  "Error-friendly for new topics" switched on (instance creation, upgrade
+  step and, for restored activities, the label list itself).
+- Misconception labels per wrong answer of a single-choice or true/false
+  question in the question editor (reports add-on). They appear next to the
+  answer after the reveal in the host view and feed the misconception radar
+  of the report.
+- Answer card sets for the card mode can be created, printed and deleted on
+  the host start screen (AI add-on, new actions `cardset_create` and
+  `cardset_delete`). The holders are the enrolled participants of the
+  activity, optionally one Moodle group; the server picks them itself.
+  As before, a card is only booked for a person who has joined the session;
+  answering entirely without devices is not possible yet.
+- The AI pre-check button of the question workshop is wired up in the
+  editor's curation list (action `ai_peer_check` existed, the editor passed
+  no handler).
+
+### Changed
+
+- `mod/quizgeist:recordaudio` now also defaults to the editing teacher and
+  manager archetypes; an upgrade step grants it to existing roles of these
+  archetypes unless the school already decided otherwise. Without it the
+  teacher dictation in the question editor never appeared.
+
+### Fixed
+
+- Deleting an activity now also deletes its answer card sets and cards.
+  Before, they stayed behind with the user IDs of their holders (unnoticed
+  because no card set could be created from the interface).
+- `card_exception` and `clip_exception` returned the language key as machine
+  code, and `get_string_key()` then failed with a TypeError; upload errors in
+  card mode and dictation ended as server errors instead of readable messages.
+  Both now follow `stage_exception`.
+- The card scan confirmation said the photograph "stays on this device". It is
+  uploaded and evaluated through the installation's AI gateway, deleted on
+  apply or discard and otherwise after the retention period; the notice now
+  says so.
+
+### Security
+
+- Site-wide labels ("Whole school") can only be created, renamed or deleted
+  with `moodle/site:config`. Before, `mod/quizgeist:manage` in any course
+  was enough. The reserved label "New" can no longer be renamed through
+  `tag_save`.
+
 ## [1.2.0-rc.4] - 2026-09-25
 
 ### Fixed

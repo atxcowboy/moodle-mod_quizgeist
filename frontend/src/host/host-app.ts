@@ -29,6 +29,7 @@ import {
   type MisconceptionRow,
 } from './misconception-panel';
 import {CardScanPanel} from './card-scan';
+import {renderCardSetPanel} from './card-sets';
 import {liveString, type StringValues} from '../live/strings';
 import {createTtsControl, TtsPlayer} from '../live/tts';
 import type {
@@ -935,6 +936,21 @@ export class HostApp {
       void this.createSession(form, submit);
     });
     card.append(eyebrow, title, description, form);
+    // F11a: answer cards are printed BEFORE the lesson, so their sets are
+    // prepared here. The panel asks `features.ai` itself and is absent
+    // without the AI addon or without mod/quizgeist:scancards.
+    const cardSets = renderCardSetPanel({
+      api: this.api,
+      config: this.config,
+      groups: this.setup.moodleGroups || [],
+      onChange: (sets) => {
+        this.config.cardSets = sets;
+      },
+      text: (key, fallback, values = {}) => this.text(key, fallback, values),
+    });
+    if (cardSets !== null) {
+      card.append(cardSets);
+    }
     shell.append(brand, card);
     this.stage.replaceChildren(shell);
     title.focus();

@@ -72,6 +72,11 @@ function quizgeist_add_instance($data, $mform = null): int {
 
     $record->id = $DB->insert_record('quizgeist', $record);
     quizgeist_grade_item_update($record);
+    // "Fehlerfreundlich bei neuen Themen" works through the reserved tag
+    // "Neu"; it has to exist before a teacher can put it on a question.
+    if (!empty($record->friendlynew)) {
+        \mod_quizgeist\local\tagging\tag_service::ensure_reserved_new_tag($record);
+    }
 
     return (int)$record->id;
 }
@@ -227,6 +232,9 @@ function quizgeist_update_instance($data, $mform = null): bool {
     $merged = (object)array_merge((array)$current, (array)$record);
     quizgeist_grade_item_update($merged);
     quizgeist_update_grades($merged);
+    if (!empty($merged->friendlynew)) {
+        \mod_quizgeist\local\tagging\tag_service::ensure_reserved_new_tag($merged);
+    }
     if ($grademethodchanged) {
         require_once($CFG->libdir . '/completionlib.php');
         $cm = get_coursemodule_from_instance(
@@ -303,6 +311,15 @@ function quizgeist_delete_instance($id): bool {
         );
         $DB->delete_records('quizgeist_workshop', $params);
         $DB->delete_records('quizgeist_misconceptions', $params);
+        // F11a: Kartensaetze sind Kursinhalt DIESER Aktivitaet und gehen mit
+        // ihr (ein Kursreset behaelt sie, siehe purge_instance_userdata()).
+        // Ihre Karten nennen Inhaber (userid) und duerfen nicht verwaisen.
+        $DB->delete_records_select(
+            'quizgeist_cards',
+            'cardsetid IN (SELECT id FROM {quizgeist_cardsets} WHERE quizgeistid = :quizgeistid)',
+            $params
+        );
+        $DB->delete_records('quizgeist_cardsets', $params);
         // Curriculum references are activity-owned course content and are
         // removed only when the activity itself is deleted (not on reset).
         $DB->delete_records('quizgeist_curriculum_refs', $params);

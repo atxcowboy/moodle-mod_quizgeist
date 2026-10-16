@@ -17,6 +17,7 @@ import {DictationControl} from './dictation';
 import {aiWarningMessages, editorString, validationMessages} from './messages';
 import {QuestionFormRenderer} from './question-form';
 import {countPlayableQuestions, isPlayableQuestion} from './readiness';
+import {MisconceptionStore, renderMisconceptionEditor} from './misconceptions';
 import {renderTagPicker, TagStore} from './tags';
 import {
   renderCuratorList,
@@ -157,6 +158,10 @@ export class EditorApp {
   private formRenderer: QuestionFormRenderer;
   /** U1 Tagging-Kern. Free of charge; hangs on no addon. */
   private tagStore: TagStore;
+  /** F5 Fehlkonzept-Etiketten; asks `features.reports` itself. */
+  private misconceptionStore: MisconceptionStore;
+  /** F7: submissions whose AI pre-check is on its way. */
+  private readonly peerChecksRunning = new Set<number>();
 
   public constructor(
     private readonly root: HTMLElement,
@@ -165,6 +170,7 @@ export class EditorApp {
     this.api = new EditorApi(config);
     this.tts = new TtsPlayer(config);
     this.tagStore = new TagStore(this.api, config.strings);
+    this.misconceptionStore = new MisconceptionStore(this.api, config.features);
     this.view = config.initialView === 'templates' ? 'templates' : 'editor';
     this.formRenderer = new QuestionFormRenderer(config, {
       isAiAvailable: () => this.aiConfig.available,
@@ -504,7 +510,11 @@ export class EditorApp {
           state,
           note,
         ),
-        null,
+        // F7: the advisory AI pre-check (AI addon, a new AI job).
+        this.config.features?.ai?.installed === true
+          && this.config.features?.ai?.canCreate !== false
+          ? (submissionId) => void this.runPeerCheck(submissionId)
+          : null,
       ));
     }
     const nextStep = this.renderNextStep();
@@ -632,6 +642,40 @@ export class EditorApp {
       );
     } catch (_error) {
       this.workshop = null;
+    }
+  }
+
+  /**
+   * F7: run the advisory AI pre-check of one learner question.
+   *
+   * The result is a hint stored next to the submission, never a decision:
+   * the server writes `aicheckjson` only. Without a reachable gateway the
+   * server answers with its rule-based check, labelled as such.
+   */
+  private async runPeerCheck(submissionId: number): Promise<void> {
+    if (this.config.features?.ai?.installed !== true
+        || this.peerChecksRunning.has(submissionId)) {
+      return;
+    }
+    this.peerChecksRunning.add(submissionId);
+    this.showToast(this.s('workshop:aicheck:running', 'Die KI-Vorprüfung läuft …'));
+    try {
+      await this.api.post<unknown>('ai_peer_check', {workshopId: submissionId});
+      await this.loadWorkshop();
+      this.render();
+      this.showToast(this.s(
+        'workshop:aicheck:done',
+        'Die KI-Vorprüfung ist fertig. Der Hinweis steht bei der Einreichung.',
+      ));
+    } catch (error) {
+      this.showToast(
+        error instanceof Error && error.message !== ''
+          ? error.message
+          : this.s('workshop:aicheck:failed', 'Die KI-Vorprüfung ist fehlgeschlagen.'),
+        true,
+      );
+    } finally {
+      this.peerChecksRunning.delete(submissionId);
     }
   }
 
@@ -1202,6 +1246,18 @@ export class EditorApp {
       createTtsControl(this.tts, this.ttsText(question), this.config),
       this.formRenderer.render(question),
     );
+    // F5: misconception labels for the wrong answers of a single-choice or
+    // true/false question (reports addon). Absent otherwise.
+    const misconceptions = renderMisconceptionEditor(
+      this.misconceptionStore,
+      this.config.strings,
+      question,
+      this.questionDirtyVersions.has(question.id),
+      (message, ok) => this.showToast(message, !ok),
+    );
+    if (misconceptions !== null) {
+      detail.append(misconceptions);
+    }
     if (this.tagStore.isLoaded()) {
       // U1: the assignment hangs on the question ROOT, so it survives every
       // further edit of this question.
@@ -1210,7 +1266,9 @@ export class EditorApp {
         this.config.strings,
         question.id,
         question.rootid || question.id,
-        (message) => this.announce(message),
+        // Visible feedback: the toast carries its own status/alert role.
+        (message, ok) => this.showToast(message, !ok),
+        () => this.render(),
       ));
     }
     return detail;

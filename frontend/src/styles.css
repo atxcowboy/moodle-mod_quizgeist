@@ -9021,6 +9021,227 @@ button.quizgeist-live-brainstorm__group {
   overflow-wrap: anywhere;
 }
 
+/* 1.2.0-rc.5: Merkmale anlegen, umbenennen, löschen. Gruppen je Art statt
+ * Farbe — die Schule hat Farbcodes bewusst abgeschafft. */
+.quizgeist-editor-tags__group {
+  display: grid;
+  gap: var(--mq-space-1);
+  min-width: 0;
+}
+
+.quizgeist-editor-tags__group-title {
+  color: var(--mq-color-ink-700);
+  font-size: var(--mq-text-xs);
+  font-weight: 700;
+  letter-spacing: .02em;
+  margin: var(--mq-space-1) 0 0;
+  text-transform: uppercase;
+}
+
+.quizgeist-editor-tags__hint {
+  color: var(--mq-color-ink-700);
+  flex-basis: 100%;
+  font-size: var(--mq-text-xs);
+  margin: 0 0 0 2rem;
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-editor-tags__quick {
+  border-top: 1px solid var(--mq-color-border);
+  display: grid;
+  gap: var(--mq-space-1);
+  min-width: 0;
+  padding-top: var(--mq-space-2);
+}
+
+.quizgeist-editor-tags__quick-fields {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mq-space-2);
+  min-width: 0;
+}
+
+.quizgeist-editor-tags__quick-field {
+  display: grid;
+  gap: var(--mq-space-1);
+  min-width: 0;
+}
+
+.quizgeist-editor-tags__quick-field--wide {
+  flex: 1 1 12rem;
+}
+
+.quizgeist-editor-tags__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mq-space-2);
+}
+
+.quizgeist-tag-manager .quizgeist-dialog__body {
+  display: grid;
+  gap: var(--mq-space-4);
+}
+
+.quizgeist-tag-manager__intro {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-tag-manager__section,
+.quizgeist-tag-manager__create {
+  display: grid;
+  gap: var(--mq-space-2);
+  min-width: 0;
+}
+
+.quizgeist-tag-manager__create {
+  border-top: 1px solid var(--mq-color-border, #d6d3cf);
+  padding-top: var(--mq-space-3);
+}
+
+.quizgeist-tag-manager__create > .quizgeist-button {
+  justify-self: start;
+}
+
+.quizgeist-tag-manager__kind {
+  font-size: var(--mq-text-base);
+  margin: 0;
+}
+
+.quizgeist-tag-manager__list {
+  display: grid;
+  gap: var(--mq-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quizgeist-tag-manager__item {
+  align-items: center;
+  border: 1px solid var(--mq-color-border, #d6d3cf);
+  border-radius: var(--mq-radius-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mq-space-2);
+  justify-content: space-between;
+  min-width: 0;
+  padding: var(--mq-space-2) var(--mq-space-3);
+}
+
+.quizgeist-tag-manager__head {
+  display: grid;
+  flex: 1 1 14rem;
+  gap: 2px;
+  min-width: 0;
+}
+
+.quizgeist-tag-manager__label {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-tag-manager__meta {
+  color: var(--mq-color-ink-700);
+  font-size: var(--mq-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-tag-manager__item > .quizgeist-field__hint,
+.quizgeist-tag-manager__confirm {
+  flex-basis: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-tag-manager__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mq-space-2);
+}
+
+.quizgeist-tag-manager__fields {
+  display: grid;
+  flex: 1 1 100%;
+  gap: var(--mq-space-2);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  min-width: 0;
+}
+
+.quizgeist-tag-manager__field {
+  display: grid;
+  gap: var(--mq-space-1);
+  min-width: 0;
+}
+
+.quizgeist-tag-manager__field[hidden] {
+  display: none;
+}
+
+.quizgeist-tag-manager__status {
+  margin: 0;
+  min-height: 1.5em;
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-tag-manager__status[data-error="true"] {
+  color: var(--mq-color-alarm-600, #b42318);
+  font-weight: 700;
+}
+
+/* 1.2.0-rc.5: Fehlvorstellungen je falscher Antwort (F5, reports-Addon). */
+.quizgeist-editor-misconceptions {
+  border: 1px solid var(--mq-color-border);
+  border-radius: var(--mq-radius-sm);
+  display: grid;
+  gap: var(--mq-space-2);
+  margin: var(--mq-space-3) 0 0;
+  min-width: 0;
+  padding: var(--mq-space-3);
+}
+
+.quizgeist-editor-misconceptions > .quizgeist-field__hint {
+  margin: 0;
+}
+
+.quizgeist-editor-misconceptions > .quizgeist-button {
+  justify-self: start;
+}
+
+.quizgeist-editor-misconceptions__notice {
+  background: var(--mq-color-honig-50);
+  border-radius: var(--mq-radius-sm);
+  font-size: var(--mq-text-sm);
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: var(--mq-space-2);
+}
+
+.quizgeist-editor-misconceptions__list {
+  display: grid;
+  gap: var(--mq-space-3);
+  min-width: 0;
+}
+
+.quizgeist-editor-misconceptions__row {
+  border-left: 3px solid var(--mq-color-border);
+  display: grid;
+  gap: var(--mq-space-1);
+  min-width: 0;
+  padding-left: var(--mq-space-3);
+}
+
+.quizgeist-editor-misconceptions__answer {
+  font-weight: 700;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-editor-misconceptions__hint {
+  min-height: 3.5rem;
+  resize: vertical;
+}
+
 /* ------------------------------------------------------------------------
  * P11/C2 — Wiederholung, Interleaving, Kompetenzen (F3, F4, F6)
  *
@@ -10126,5 +10347,131 @@ textarea.quizgeist-workshop-input {
   font-size: var(--mq-text-sm);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------------
+ * 1.2.0-rc.5 — Antwortkarten im Startbildschirm (F11a)
+ *
+ * Kartensätze entstehen vor der Stunde, deshalb im Startbildschirm. Ein
+ * <details>-Block, damit der eigentliche Spielstart oben bleibt.
+ * ---------------------------------------------------------------------- */
+
+.quizgeist-host-cardsets {
+  border: 1px solid var(--mq-color-border);
+  border-radius: var(--mq-radius-md);
+  margin-top: var(--mq-space-4);
+  min-width: 0;
+  text-align: start;
+}
+
+.quizgeist-host-cardsets__summary {
+  cursor: pointer;
+  font-family: var(--mq-font-heading);
+  font-weight: 700;
+  min-height: 2.75rem;
+  overflow-wrap: anywhere;
+  padding: var(--mq-space-3) var(--mq-space-4);
+}
+
+.quizgeist-host-cardsets__body {
+  border-top: 1px solid var(--mq-color-border);
+  display: grid;
+  gap: var(--mq-space-3);
+  min-width: 0;
+  padding: var(--mq-space-3) var(--mq-space-4) var(--mq-space-4);
+}
+
+.quizgeist-host-cardsets__intro,
+.quizgeist-host-cardsets__empty,
+.quizgeist-host-cardsets__locked,
+.quizgeist-host-cardsets__confirm,
+.quizgeist-host-cardsets__status {
+  font-size: var(--mq-text-sm);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-host-cardsets__status[hidden] {
+  display: none;
+}
+
+.quizgeist-host-cardsets__status[data-error="true"] {
+  color: var(--mq-color-alarm-700);
+  font-weight: 700;
+}
+
+.quizgeist-host-cardsets__list {
+  display: grid;
+  gap: var(--mq-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quizgeist-host-cardsets__item {
+  align-items: center;
+  border: 1px solid var(--mq-color-border);
+  border-radius: var(--mq-radius-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mq-space-2);
+  justify-content: space-between;
+  min-width: 0;
+  padding: var(--mq-space-2) var(--mq-space-3);
+}
+
+.quizgeist-host-cardsets__head {
+  display: grid;
+  flex: 1 1 12rem;
+  gap: 2px;
+  min-width: 0;
+}
+
+.quizgeist-host-cardsets__name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-host-cardsets__meta {
+  color: var(--mq-color-ink-700);
+  font-size: var(--mq-text-xs);
+}
+
+.quizgeist-host-cardsets__confirm {
+  flex-basis: 100%;
+}
+
+.quizgeist-host-cardsets__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mq-space-2);
+}
+
+.quizgeist-host-cardsets__form {
+  display: grid;
+  gap: var(--mq-space-3);
+  min-width: 0;
+}
+
+.quizgeist-host-cardsets__form > .quizgeist-host-button {
+  justify-self: start;
+}
+
+.quizgeist-host-cardsets__subtitle {
+  font-size: var(--mq-text-base);
+  margin: 0;
+}
+
+.quizgeist-host-cardsets__fields {
+  display: grid;
+  gap: var(--mq-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  min-width: 0;
+}
+
+.quizgeist-host-cardsets__field {
+  display: grid;
+  gap: var(--mq-space-1);
   min-width: 0;
 }

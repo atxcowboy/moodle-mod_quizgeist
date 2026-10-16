@@ -5123,6 +5123,279 @@ var QuizgeistHostApp = (() => {
     }
   };
 
+  // src/host/card-sets.ts
+  var LAYOUTS = ["abcd", "abcdef", "truefalse"];
+  var MAX_NAME = 255;
+  var MAX_RESERVES = 50;
+  function normaliseSets(raw) {
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw.filter((entry) => typeof entry === "object" && entry !== null).map((entry) => ({
+      cardCount: Number(entry.cardCount) || 0,
+      id: Number(entry.id) || 0,
+      layout: String(entry.layout || ""),
+      name: String(entry.name || "")
+    })).filter((entry) => entry.id > 0);
+  }
+  function renderCardSetPanel(context) {
+    var _a, _b, _c, _d;
+    const { config, text: text2 } = context;
+    const printUrl = config.cardsPrintUrl;
+    if (((_b = (_a = config.features) == null ? void 0 : _a.ai) == null ? void 0 : _b.installed) !== true || !Array.isArray(config.cardSets) || typeof printUrl !== "string" || printUrl === "") {
+      return null;
+    }
+    const canCreate = ((_d = (_c = config.features) == null ? void 0 : _c.ai) == null ? void 0 : _d.canCreate) !== false;
+    let sets = config.cardSets.slice();
+    const state = { confirmId: 0, error: false, open: false, status: "" };
+    const details = liveElement("details", "quizgeist-host-cardsets");
+    details.dataset.liveCardsets = "";
+    const summary = liveElement("summary", "quizgeist-host-cardsets__summary");
+    const body2 = liveElement("div", "quizgeist-host-cardsets__body");
+    details.append(summary, body2);
+    details.addEventListener("toggle", () => {
+      state.open = details.open;
+    });
+    const layoutLabel = (layout) => text2(
+      `cards:layout:${layout}`,
+      layout === "truefalse" ? "Wahr/Falsch" : layout.toUpperCase()
+    );
+    const failMessage = (result) => {
+      const first = Array.isArray(result.validationErrors) ? result.validationErrors[0] : void 0;
+      return (first == null ? void 0 : first.message) && first.message !== "" ? first.message : text2("cards:sets:error", "Der Kartensatz konnte nicht gespeichert werden.");
+    };
+    const run = (trigger, work, success) => {
+      trigger.disabled = true;
+      void work().then((result) => {
+        const errors = Array.isArray(result.validationErrors) ? result.validationErrors : [];
+        if (Array.isArray(result.cardSets)) {
+          sets = normaliseSets(result.cardSets);
+          context.onChange(sets);
+        }
+        state.error = errors.length > 0;
+        state.status = state.error ? failMessage(result) : success(result);
+        if (!state.error) {
+          state.confirmId = 0;
+        }
+      }).catch((error) => {
+        state.error = true;
+        state.status = error instanceof Error && error.message !== "" ? error.message : text2("cards:sets:error", "Der Kartensatz konnte nicht gespeichert werden.");
+      }).finally(() => {
+        var _a2;
+        trigger.disabled = false;
+        render();
+        (_a2 = body2.querySelector(".quizgeist-host-cardsets__status")) == null ? void 0 : _a2.focus();
+      });
+    };
+    const renderSet = (set) => {
+      const item = liveElement("li", "quizgeist-host-cardsets__item");
+      item.dataset.cardSetId = String(set.id);
+      const head = liveElement("div", "quizgeist-host-cardsets__head");
+      head.append(
+        liveElement("span", "quizgeist-host-cardsets__name", { text: set.name }),
+        liveElement("span", "quizgeist-host-cardsets__meta", {
+          text: text2("cards:sets:meta", "{$a->layout} \xB7 {$a->count} Karten", {
+            count: set.cardCount,
+            layout: layoutLabel(set.layout)
+          })
+        })
+      );
+      item.append(head);
+      const actions = liveElement("div", "quizgeist-host-cardsets__actions");
+      if (state.confirmId === set.id) {
+        item.append(liveElement("p", "quizgeist-host-cardsets__confirm", {
+          text: text2(
+            "cards:sets:deleteconfirm",
+            "Kartensatz \u201E{$a}\u201C l\xF6schen? Gedruckte Karten dieses Satzes lassen sich danach nicht mehr scannen.",
+            { a: set.name }
+          )
+        }));
+        const confirm = liveButton(
+          text2("cards:sets:deleteyes", "Endg\xFCltig l\xF6schen"),
+          "quizgeist-host-button quizgeist-host-button--quiet-danger quizgeist-touch-target",
+          { "data-live-cardset-delete-confirm": set.id }
+        );
+        confirm.addEventListener("click", () => run(
+          confirm,
+          () => context.api.post("cardset_delete", { cardSetId: set.id }),
+          () => text2("cards:sets:deleted", "Der Kartensatz ist gel\xF6scht.")
+        ));
+        const cancel = liveButton(
+          text2("cards:sets:cancel", "Abbrechen"),
+          "quizgeist-host-button quizgeist-host-button--secondary quizgeist-touch-target"
+        );
+        cancel.addEventListener("click", () => {
+          state.confirmId = 0;
+          render();
+        });
+        actions.append(confirm, cancel);
+        window.requestAnimationFrame(() => cancel.focus());
+      } else {
+        const print = liveElement("a", "quizgeist-host-button quizgeist-host-button--secondary quizgeist-touch-target", {
+          href: `${printUrl}&cardset=${set.id}`,
+          rel: "noopener",
+          target: "_blank",
+          text: text2("cards:scan:print", "Kartenbogen als PDF drucken")
+        });
+        const remove = liveButton(
+          text2("cards:sets:delete", "L\xF6schen"),
+          "quizgeist-host-button quizgeist-host-button--quiet-danger quizgeist-touch-target",
+          {
+            "aria-label": `${text2("cards:sets:delete", "L\xF6schen")}: ${set.name}`,
+            "data-live-cardset-delete": set.id
+          }
+        );
+        remove.addEventListener("click", () => {
+          state.confirmId = set.id;
+          render();
+        });
+        actions.append(print, remove);
+      }
+      item.append(actions);
+      return item;
+    };
+    const renderForm = () => {
+      const form = liveElement("form", "quizgeist-host-cardsets__form", {
+        "data-live-cardset-create": true
+      });
+      form.noValidate = true;
+      const id = (name2) => `quizgeist-cardset-${name2}-${config.cmid}`;
+      const field = (name2, label, control) => {
+        const wrapper = liveElement("div", "quizgeist-host-cardsets__field");
+        wrapper.append(
+          liveElement("label", "quizgeist-host-field__label", { for: id(name2), text: label }),
+          control
+        );
+        return wrapper;
+      };
+      const name = liveElement("input", "quizgeist-host-text-input", {
+        id: id("name"),
+        maxlength: MAX_NAME,
+        type: "text",
+        value: text2("cards:sets:defaultname", "Antwortkarten")
+      });
+      const layout = liveElement("select", "quizgeist-host-select", { id: id("layout") });
+      LAYOUTS.forEach((value2) => {
+        layout.append(liveElement("option", "", {
+          text: text2(`cards:layout:${value2}:long`, layoutLabel(value2)),
+          value: value2
+        }));
+      });
+      const group = liveElement("select", "quizgeist-host-select", { id: id("group") });
+      group.append(liveElement("option", "", {
+        text: text2("cards:sets:allparticipants", "Alle Teilnehmenden"),
+        value: "0"
+      }));
+      context.groups.forEach((option) => {
+        const groupId = Number(option.id);
+        if (Number.isInteger(groupId) && groupId > 0) {
+          group.append(liveElement("option", "", { text: option.name, value: String(groupId) }));
+        }
+      });
+      const reserves = liveElement("input", "quizgeist-host-text-input", {
+        id: id("reserves"),
+        inputmode: "numeric",
+        max: MAX_RESERVES,
+        min: 0,
+        type: "number",
+        value: 4
+      });
+      const submit = liveElement("button", "quizgeist-host-button quizgeist-host-button--primary quizgeist-touch-target", {
+        text: text2("cards:sets:create", "Kartensatz anlegen"),
+        type: "submit"
+      });
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const cleanName = name.value.trim().slice(0, MAX_NAME);
+        if (cleanName === "") {
+          name.focus();
+          return;
+        }
+        const reserveCount = Math.max(0, Math.min(MAX_RESERVES, Math.round(Number(reserves.value) || 0)));
+        run(
+          submit,
+          () => context.api.post("cardset_create", {
+            groupId: Number(group.value) || 0,
+            layout: layout.value,
+            name: cleanName,
+            reserves: reserveCount
+          }),
+          (result) => {
+            var _a2, _b2;
+            return text2(
+              "cards:sets:created",
+              "Kartensatz \u201E{$a->name}\u201C mit {$a->count} Karten angelegt. Drucke ihn jetzt aus.",
+              {
+                count: Number((_a2 = result.cardSet) == null ? void 0 : _a2.cardCount) || 0,
+                name: String(((_b2 = result.cardSet) == null ? void 0 : _b2.name) || cleanName)
+              }
+            );
+          }
+        );
+      });
+      const grid = liveElement("div", "quizgeist-host-cardsets__fields");
+      grid.append(
+        field("name", text2("cards:sets:name", "Name des Kartensatzes"), name),
+        field("layout", text2("cards:sets:layout", "Kartenformat"), layout),
+        field("group", text2("cards:sets:group", "Karten f\xFCr"), group),
+        field("reserves", text2("cards:sets:reserves", "Reservekarten"), reserves)
+      );
+      form.append(
+        liveElement("h3", "quizgeist-host-cardsets__subtitle", {
+          text: text2("cards:sets:new", "Neuer Kartensatz")
+        }),
+        grid,
+        submit
+      );
+      return form;
+    };
+    const render = () => {
+      summary.textContent = text2("cards:sets:title", "Antwortkarten f\xFCr den Karten-Modus ({$a})", {
+        a: sets.length
+      });
+      const nodes = [
+        liveElement("p", "quizgeist-host-cardsets__intro", {
+          text: text2(
+            "cards:sets:intro",
+            "Jede Person bekommt eine gedruckte Karte. Verbucht werden nur Karten von Personen, die dieser Session beigetreten sind."
+          )
+        })
+      ];
+      if (sets.length) {
+        const list = liveElement("ul", "quizgeist-host-cardsets__list");
+        sets.forEach((set) => list.append(renderSet(set)));
+        nodes.push(list);
+      } else {
+        nodes.push(liveElement("p", "quizgeist-host-cardsets__empty", {
+          text: text2("cards:sets:empty", "Noch kein Kartensatz angelegt.")
+        }));
+      }
+      if (canCreate) {
+        nodes.push(renderForm());
+      } else {
+        nodes.push(liveElement("p", "quizgeist-host-cardsets__locked", {
+          text: text2(
+            "cards:error:scanlocked",
+            "F\xFCr den Karten-Modus fehlt eine g\xFCltige Lizenz des KI-Pakets."
+          )
+        }));
+      }
+      const status = liveElement("p", "quizgeist-host-cardsets__status", {
+        "aria-live": "polite",
+        role: state.error ? "alert" : "status",
+        tabindex: -1,
+        text: state.status
+      });
+      status.dataset.error = state.error ? "true" : "false";
+      status.hidden = state.status === "";
+      nodes.push(status);
+      body2.replaceChildren(...nodes);
+      details.open = state.open;
+    };
+    render();
+    return details;
+  }
+
   // src/live/strings.ts
   var MISSING_STRING_PLACEHOLDER = "\u2026";
   var reportedKeys = /* @__PURE__ */ new Set();
@@ -6739,6 +7012,18 @@ var QuizgeistHostApp = (() => {
         void this.createSession(form, submit);
       });
       card.append(eyebrow, title, description, form);
+      const cardSets = renderCardSetPanel({
+        api: this.api,
+        config: this.config,
+        groups: this.setup.moodleGroups || [],
+        onChange: (sets) => {
+          this.config.cardSets = sets;
+        },
+        text: (key, fallback, values = {}) => this.text(key, fallback, values)
+      });
+      if (cardSets !== null) {
+        card.append(cardSets);
+      }
       shell.append(brand, card);
       this.stage.replaceChildren(shell);
       title.focus();

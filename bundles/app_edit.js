@@ -2130,12 +2130,267 @@ var QuizgeistEditApp = (() => {
     return questions.filter((question2) => isPlayableQuestion(question2, liveSupportedTypes)).length;
   }
 
+  // src/editor/misconceptions.ts
+  var MAX_LABEL = 255;
+  var MAX_HINT = 1e3;
+  function supportsMisconceptions(question2) {
+    if (question2.qtype === "truefalse") {
+      return true;
+    }
+    if (question2.qtype !== "quiz") {
+      return false;
+    }
+    const options = question2.options;
+    return options.multiple !== true;
+  }
+  var MisconceptionStore = class {
+    constructor(api, features) {
+      this.api = api;
+      this.features = features;
+      __publicField(this, "entries", /* @__PURE__ */ new Map());
+      __publicField(this, "pending", /* @__PURE__ */ new Map());
+    }
+    /** The reports addon reports itself installed for this page. */
+    available() {
+      var _a, _b;
+      return ((_b = (_a = this.features) == null ? void 0 : _a.reports) == null ? void 0 : _b.installed) === true;
+    }
+    /** New labels are a creation; an expired licence keeps them read-only. */
+    canCreate() {
+      var _a, _b, _c, _d;
+      return ((_b = (_a = this.features) == null ? void 0 : _a.reports) == null ? void 0 : _b.installed) === true && ((_d = (_c = this.features) == null ? void 0 : _c.reports) == null ? void 0 : _d.canCreate) !== false;
+    }
+    key(question2) {
+      return `${question2.id}:${question2.timemodified}`;
+    }
+    entry(question2) {
+      return this.entries.get(this.key(question2));
+    }
+    /**
+     * Load the stored labels once per stored version.
+     *
+     * Every caller gets the same promise, so a block drawn while an earlier
+     * block's request is still running fills itself as well.
+     */
+    load(question2) {
+      const key = this.key(question2);
+      const pending = this.pending.get(key);
+      if (pending !== void 0) {
+        return pending;
+      }
+      const request = this.fetch(key, question2.id);
+      this.pending.set(key, request);
+      return request;
+    }
+    async fetch(key, questionId) {
+      var _a, _b;
+      if (((_b = (_a = this.features) == null ? void 0 : _a.reports) == null ? void 0 : _b.installed) !== true) {
+        return;
+      }
+      this.entries.set(key, { state: "loading" });
+      try {
+        const result = await this.api.post(
+          "misconception_list",
+          { questionId }
+        );
+        const first = Array.isArray(result.questions) ? result.questions[0] : void 0;
+        this.entries.set(key, {
+          state: "ready",
+          answers: first && Array.isArray(first.answers) ? first.answers : []
+        });
+      } catch (_error) {
+        this.entries.set(key, { state: "failed" });
+      }
+    }
+    async save(question2, labels) {
+      var _a, _b;
+      if (((_b = (_a = this.features) == null ? void 0 : _a.reports) == null ? void 0 : _b.installed) !== true) {
+        return { code: "generic", ok: false };
+      }
+      const result = await this.api.post(
+        "misconception_save",
+        { questionId: question2.id, labels }
+      );
+      const errors = Array.isArray(result.validationErrors) ? result.validationErrors : [];
+      if (errors.length) {
+        return { code: errors[0].code, ok: false };
+      }
+      const entry = this.entries.get(this.key(question2));
+      if (entry && entry.state === "ready") {
+        const byKey = new Map(labels.map((item) => [item.answerKey, item]));
+        entry.answers = entry.answers.map((answer) => {
+          var _a2, _b2;
+          return {
+            ...answer,
+            hint: ((_a2 = byKey.get(answer.answerKey)) == null ? void 0 : _a2.hint) || "",
+            label: ((_b2 = byKey.get(answer.answerKey)) == null ? void 0 : _b2.label) || ""
+          };
+        });
+      }
+      return { code: "", ok: true };
+    }
+  };
+  function renderMisconceptionEditor(store, strings, question2, dirty, onMessage) {
+    if (!store.available() || !supportsMisconceptions(question2)) {
+      return null;
+    }
+    const t = (key, fallback) => editorString(strings, key, fallback);
+    const block = element("fieldset", "quizgeist-editor-misconceptions");
+    block.dataset.editorMisconceptions = "";
+    const fill = () => {
+      const entry = store.entry(question2);
+      if (entry !== void 0 && entry.state === "failed") {
+        block.remove();
+        return;
+      }
+      const nodes = [
+        element("legend", "quizgeist-editor-tags__legend", {
+          text: t("misconception:editor:title", "Fehlvorstellungen")
+        }),
+        element("p", "quizgeist-field__hint", {
+          text: t(
+            "misconception:editor:intro",
+            "Welche Fehlvorstellung steckt hinter einer falschen Antwort?"
+          )
+        })
+      ];
+      if (entry === void 0 || entry.state !== "ready") {
+        nodes.push(element("p", "quizgeist-field__hint", {
+          role: "status",
+          text: t("misconception:editor:loading", "Fehlvorstellungen werden geladen \u2026")
+        }));
+        block.replaceChildren(...nodes);
+        return;
+      }
+      if (dirty) {
+        nodes.push(element("p", "quizgeist-editor-misconceptions__notice", {
+          text: t(
+            "misconception:editor:unsaved",
+            "Die Etiketten gelten f\xFCr die zuletzt gespeicherten Antworten."
+          )
+        }));
+      }
+      const editable = store.canCreate();
+      if (!editable) {
+        nodes.push(element("p", "quizgeist-editor-misconceptions__notice", {
+          text: t(
+            "misconception:editor:locked",
+            "Neue Etiketten brauchen eine g\xFCltige Lizenz des Berichtspakets."
+          )
+        }));
+      }
+      const rows = [];
+      const list = element("div", "quizgeist-editor-misconceptions__list");
+      entry.answers.forEach((answer, index) => {
+        if (answer.correct) {
+          return;
+        }
+        const text4 = question2.qtype === "truefalse" ? answer.answerKey === "true" ? t("misconception:editor:true", "Wahr") : t("misconception:editor:false", "Falsch") : answer.text.trim() || t("misconception:editor:unnamed", "Antwort ohne Text");
+        const labelId = `quizgeist-misconception-${question2.id}-${index}`;
+        const hintId = `${labelId}-hint`;
+        const row = element("div", "quizgeist-editor-misconceptions__row");
+        row.dataset.answerKey = answer.answerKey;
+        const label = element("input", "quizgeist-input", {
+          disabled: !editable,
+          id: labelId,
+          maxlength: MAX_LABEL,
+          type: "text",
+          value: answer.label
+        });
+        const hint = element("textarea", "quizgeist-input quizgeist-editor-misconceptions__hint", {
+          disabled: !editable,
+          id: hintId,
+          maxlength: MAX_HINT,
+          rows: 2
+        });
+        hint.value = answer.hint;
+        row.append(
+          element("p", "quizgeist-editor-misconceptions__answer", {
+            text: `${t("misconception:editor:answer", "Falsche Antwort")}: ${text4}`
+          }),
+          element("label", "quizgeist-field__label", {
+            for: labelId,
+            text: t("misconception:editor:label", "Fehlvorstellung")
+          }),
+          label,
+          element("label", "quizgeist-field__label", {
+            for: hintId,
+            text: t("misconception:editor:hint", "Notiz f\xFCr den Bericht (optional)")
+          }),
+          hint
+        );
+        list.append(row);
+        rows.push({ answerKey: answer.answerKey, hint, label });
+      });
+      if (!rows.length) {
+        block.remove();
+        return;
+      }
+      nodes.push(list);
+      if (editable) {
+        const failure = t(
+          "misconception:editor:error",
+          "Die Fehlvorstellungen konnten nicht gespeichert werden."
+        );
+        const save = button(
+          t("misconception:editor:save", "Fehlvorstellungen speichern"),
+          "quizgeist-button quizgeist-button--secondary"
+        );
+        save.dataset.action = "save-misconceptions";
+        save.addEventListener("click", () => {
+          const missing = rows.find((row) => row.label.value.trim() === "" && row.hint.value.trim() !== "");
+          if (missing) {
+            onMessage(t(
+              "misconception:editor:error:required",
+              "Zu einer Notiz geh\xF6rt auch eine Fehlvorstellung."
+            ), false);
+            missing.label.focus();
+            return;
+          }
+          const labels = rows.filter((row) => row.label.value.trim() !== "").map((row) => ({
+            answerKey: row.answerKey,
+            hint: row.hint.value.trim().slice(0, MAX_HINT),
+            label: row.label.value.trim().slice(0, MAX_LABEL)
+          }));
+          save.disabled = true;
+          void store.save(question2, labels).then((result) => {
+            onMessage(
+              result.ok ? t("misconception:editor:saved", "Die Fehlvorstellungen sind gespeichert.") : failure,
+              result.ok
+            );
+          }).catch(() => onMessage(failure, false)).finally(() => {
+            save.disabled = false;
+          });
+        });
+        nodes.push(save);
+      }
+      block.replaceChildren(...nodes);
+    };
+    const loading = store.load(question2);
+    fill();
+    void loading.then(() => {
+      if (block.isConnected) {
+        fill();
+      }
+    });
+    return block;
+  }
+
   // src/editor/tags.ts
+  var KIND_ORDER = ["topic", "qtype", "competence"];
+  var CREATABLE_SCOPES = ["activity", "course"];
+  var RESERVED_KIND = "topic";
+  var RESERVED_KEY = "neu";
+  var MAX_LABEL2 = 255;
+  var MAX_EXTERNALREF = 255;
+  var MAX_KEY_STEM = 60;
   var ERROR_FAMILIES = {
     duplicate: "tag:error:duplicate",
+    forbidden: "tag:error:forbidden",
     invalid: "tag:error:invalid",
     out_of_range: "tag:error:out_of_range",
     required: "tag:error:required",
+    reserved: "tag:error:reserved",
     too_many: "tag:error:too_many"
   };
   function tagErrorMessage(strings, errors) {
@@ -2154,13 +2409,30 @@ var QuizgeistEditApp = (() => {
       )
     );
   }
+  function withValue(text4, value) {
+    return text4.split("{$a}").join(String(value));
+  }
+  function deriveTagKey(label, taken) {
+    const stem = label.toLowerCase().replace(/ä/gu, "ae").replace(/ö/gu, "oe").replace(/ü/gu, "ue").replace(/ß/gu, "ss").normalize("NFKD").replace(/[̀-ͯ]/gu, "").replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "").slice(0, MAX_KEY_STEM).replace(/-+$/u, "") || "merkmal";
+    let key = stem;
+    let suffix = 2;
+    while (taken.has(key)) {
+      key = `${stem}-${suffix}`;
+      suffix += 1;
+    }
+    return key;
+  }
   var TagStore = class {
     constructor(api, strings) {
       this.api = api;
       this.strings = strings;
       __publicField(this, "tags", []);
       __publicField(this, "byRoot", /* @__PURE__ */ new Map());
+      /** Ticked but not yet saved boxes per root; survive every redraw. */
+      __publicField(this, "drafts", /* @__PURE__ */ new Map());
       __publicField(this, "loaded", false);
+      /** A freshly created tag asks the next picker to take focus. */
+      __publicField(this, "focusTagId", 0);
     }
     isLoaded() {
       return this.loaded;
@@ -2174,8 +2446,38 @@ var QuizgeistEditApp = (() => {
     assignmentsFor(rootId) {
       return (this.byRoot.get(rootId) || []).slice();
     }
+    isReserved(tag) {
+      return tag.reserved === true || tag.kind === RESERVED_KIND && tag.tagKey === RESERVED_KEY;
+    }
+    /** Number of questions of THIS activity that carry the tag. */
+    usageCount(tagId) {
+      let count2 = 0;
+      this.byRoot.forEach((assignments) => {
+        if (assignments.some((entry) => entry.tagId === tagId)) {
+          count2 += 1;
+        }
+      });
+      return count2;
+    }
+    /** The boxes a picker shows as ticked: the draft, else the saved state. */
+    selectionFor(rootId) {
+      const draft = this.drafts.get(rootId);
+      if (draft !== void 0) {
+        return new Set(draft);
+      }
+      return new Set(this.assignmentsFor(rootId).map((entry) => entry.tagId));
+    }
+    setDraft(rootId, tagIds) {
+      const known = new Set(this.tags.map((tag) => tag.id));
+      this.drafts.set(
+        rootId,
+        new Set(Array.from(tagIds).filter((tagId) => known.has(tagId)))
+      );
+    }
     async load(signal) {
-      const result = await this.api.post("tag_list", {}, signal);
+      this.apply(await this.api.post("tag_list", {}, signal));
+    }
+    apply(result) {
       this.tags = Array.isArray(result.tags) ? result.tags : [];
       this.byRoot = /* @__PURE__ */ new Map();
       (Array.isArray(result.assignments) ? result.assignments : []).forEach((entry) => {
@@ -2184,7 +2486,30 @@ var QuizgeistEditApp = (() => {
           Array.isArray(entry.tags) ? entry.tags : []
         );
       });
+      const known = new Set(this.tags.map((tag) => tag.id));
+      this.drafts.forEach((draft, rootId) => {
+        this.drafts.set(
+          rootId,
+          new Set(Array.from(draft).filter((tagId) => known.has(tagId)))
+        );
+      });
       this.loaded = true;
+    }
+    genericError() {
+      return {
+        message: editorString(
+          this.strings,
+          "tag:error:generic",
+          "Die Merkmale konnten nicht gespeichert werden."
+        ),
+        ok: false
+      };
+    }
+    requiredError() {
+      return {
+        message: editorString(this.strings, "tag:error:required", "Dieses Feld wird ben\xF6tigt."),
+        ok: false
+      };
     }
     /**
      * Replace the complete assignment list of one question.
@@ -2204,10 +2529,9 @@ var QuizgeistEditApp = (() => {
       if (errors.length) {
         return { message: tagErrorMessage(this.strings, errors), ok: false };
       }
-      this.byRoot.set(
-        Number(result.rootId),
-        Array.isArray(result.tags) ? result.tags : []
-      );
+      const rootId = Number(result.rootId);
+      this.byRoot.set(rootId, Array.isArray(result.tags) ? result.tags : []);
+      this.drafts.delete(rootId);
       return {
         message: editorString(
           this.strings,
@@ -2217,14 +2541,127 @@ var QuizgeistEditApp = (() => {
         ok: true
       };
     }
+    /**
+     * Create one tag. Scope and kind are fixed from then on; only the label
+     * and the reference can change later (they are not part of the identity).
+     */
+    async createTag(label, kind, scope, externalRef = "") {
+      var _a;
+      const cleanLabel = label.trim().slice(0, MAX_LABEL2);
+      if (cleanLabel === "") {
+        return this.requiredError();
+      }
+      const taken = new Set(
+        this.tags.filter((tag) => tag.kind === kind && tag.scope === scope).map((tag) => tag.tagKey)
+      );
+      if (kind === RESERVED_KIND) {
+        taken.add(RESERVED_KEY);
+      }
+      const result = await this.api.post("tag_save", {
+        tag: {
+          colorkey: null,
+          externalref: kind === "competence" ? externalRef.trim().slice(0, MAX_EXTERNALREF) : "",
+          kind,
+          label: cleanLabel,
+          scope,
+          sortorder: 0,
+          tagkey: deriveTagKey(cleanLabel, taken)
+        }
+      });
+      const errors = Array.isArray(result.validationErrors) ? result.validationErrors : [];
+      if (errors.length) {
+        return { message: tagErrorMessage(this.strings, errors), ok: false };
+      }
+      await this.load();
+      return {
+        message: withValue(
+          editorString(this.strings, "tag:created", "Das Merkmal \u201E{$a}\u201C ist angelegt."),
+          cleanLabel
+        ),
+        ok: true,
+        tagId: Number(((_a = result.tag) == null ? void 0 : _a.id) || 0)
+      };
+    }
+    /** Rename one tag; the identity fields travel back unchanged. */
+    async renameTag(tag, label, externalRef) {
+      const cleanLabel = label.trim().slice(0, MAX_LABEL2);
+      if (cleanLabel === "") {
+        return this.requiredError();
+      }
+      const result = await this.api.post("tag_save", {
+        tag: {
+          colorkey: tag.colorKey,
+          externalref: tag.kind === "competence" ? externalRef.trim().slice(0, MAX_EXTERNALREF) : tag.externalRef || "",
+          id: tag.id,
+          kind: tag.kind,
+          label: cleanLabel,
+          scope: tag.scope,
+          sortorder: tag.sortOrder,
+          tagkey: tag.tagKey
+        }
+      });
+      const errors = Array.isArray(result.validationErrors) ? result.validationErrors : [];
+      if (errors.length) {
+        return { message: tagErrorMessage(this.strings, errors), ok: false };
+      }
+      await this.load();
+      return {
+        message: withValue(
+          editorString(this.strings, "tag:renamed", "Das Merkmal hei\xDFt jetzt \u201E{$a}\u201C."),
+          cleanLabel
+        ),
+        ok: true
+      };
+    }
+    /** Delete one tag; the answer is the complete new read model. */
+    async deleteTag(tag) {
+      const result = await this.api.post("tag_delete", {
+        tagId: tag.id
+      });
+      const errors = Array.isArray(result.validationErrors) ? result.validationErrors : [];
+      if (errors.length) {
+        return { message: tagErrorMessage(this.strings, errors), ok: false };
+      }
+      this.apply(result);
+      return {
+        message: editorString(this.strings, "tag:deleted", "Das Merkmal ist gel\xF6scht."),
+        ok: true
+      };
+    }
   };
-  function renderTagPicker(store, strings, questionId, rootId, onSaved) {
+  function kindLabel(strings, kind) {
+    return editorString(strings, `tag:kind:${kind}`, String(kind));
+  }
+  function scopeLabel(strings, scope) {
+    return editorString(strings, `tag:scope:${scope}`, String(scope));
+  }
+  function orderedKinds(store) {
+    const extra = store.all().map((tag) => String(tag.kind)).filter((kind, index, list) => !KIND_ORDER.includes(kind) && list.indexOf(kind) === index);
+    return [...KIND_ORDER, ...extra];
+  }
+  function sortedOfKind(store, kind) {
+    return store.ofKind(kind).sort((left, right) => Number(store.isReserved(right)) - Number(store.isReserved(left)));
+  }
+  function kindSelect(strings, id) {
+    const select = element("select", "quizgeist-select", { id });
+    KIND_ORDER.forEach((kind) => {
+      select.append(element("option", "", { text: kindLabel(strings, kind), value: kind }));
+    });
+    return select;
+  }
+  function labelled(id, text4, control, className) {
+    const wrapper = element("div", className);
+    wrapper.append(element("label", "quizgeist-field__label", { for: id, text: text4 }), control);
+    return wrapper;
+  }
+  function renderTagPicker(store, strings, questionId, rootId, onMessage, onStoreChanged) {
     const block = element("fieldset", "quizgeist-editor-tags");
     block.dataset.editorTags = "";
     const legend = element("legend", "quizgeist-editor-tags__legend");
     legend.textContent = editorString(strings, "tag", "Merkmale");
     block.append(legend);
     const available = store.all();
+    const inputs = [];
     if (!available.length) {
       const empty = element("p", "quizgeist-editor-tags__empty");
       empty.textContent = editorString(
@@ -2233,64 +2670,458 @@ var QuizgeistEditApp = (() => {
         "F\xFCr diese Aktivit\xE4t sind noch keine Merkmale angelegt."
       );
       block.append(empty);
-      return block;
-    }
-    const assigned = new Set(
-      store.assignmentsFor(rootId).map((entry) => entry.tagId)
-    );
-    const list = element("div", "quizgeist-editor-tags__list");
-    const inputs = [];
-    available.forEach((tag) => {
-      const id = `quizgeist-tag-${questionId}-${tag.id}`;
-      const row = element("div", "quizgeist-editor-tags__item");
-      const input = element("input", "quizgeist-editor-tags__checkbox");
-      input.type = "checkbox";
-      input.id = id;
-      input.value = String(tag.id);
-      input.checked = assigned.has(tag.id);
-      input.dataset.tagId = String(tag.id);
-      const label = element("label", "quizgeist-editor-tags__label");
-      label.htmlFor = id;
-      label.textContent = tag.label;
-      if (tag.colorKey) {
-        label.dataset.colorKey = tag.colorKey;
-      }
-      const kind = element("span", "quizgeist-editor-tags__kind");
-      kind.textContent = editorString(
-        strings,
-        `tag:kind:${tag.kind}`,
-        String(tag.kind)
-      );
-      row.append(input, label, kind);
-      list.append(row);
-      inputs.push(input);
-    });
-    block.append(list);
-    const save = button(
-      editorString(strings, "tag:action:save", "Merkmale speichern"),
-      "quizgeist-editor-button"
-    );
-    save.dataset.action = "save-tags";
-    save.addEventListener("click", () => {
-      const selected = inputs.filter((input) => input.checked).map((input) => Number(input.value));
-      save.disabled = true;
-      void store.saveForQuestion(questionId, selected).then((result) => {
-        onSaved(result.message, result.ok);
-      }).catch(() => {
-        onSaved(
-          editorString(
-            strings,
-            "tag:error:generic",
-            "Die Merkmale konnten nicht gespeichert werden."
-          ),
-          false
-        );
-      }).finally(() => {
-        save.disabled = false;
+    } else {
+      const selected = store.selectionFor(rootId);
+      orderedKinds(store).forEach((kind) => {
+        const tags = sortedOfKind(store, kind);
+        if (!tags.length) {
+          return;
+        }
+        const group = element("div", "quizgeist-editor-tags__group");
+        group.append(element("p", "quizgeist-editor-tags__group-title", {
+          text: kindLabel(strings, kind)
+        }));
+        const list = element("div", "quizgeist-editor-tags__list");
+        tags.forEach((tag) => {
+          const id = `quizgeist-tag-${questionId}-${tag.id}`;
+          const row = element("div", "quizgeist-editor-tags__item");
+          const input = element("input", "quizgeist-editor-tags__checkbox");
+          input.type = "checkbox";
+          input.id = id;
+          input.value = String(tag.id);
+          input.checked = selected.has(tag.id);
+          input.dataset.tagId = String(tag.id);
+          input.addEventListener("change", () => {
+            store.setDraft(
+              rootId,
+              inputs.filter((entry) => entry.checked).map((entry) => Number(entry.value))
+            );
+          });
+          const label = element("label", "quizgeist-editor-tags__label");
+          label.htmlFor = id;
+          label.textContent = tag.label;
+          row.append(input, label);
+          if (tag.scope !== "activity") {
+            row.append(element("span", "quizgeist-editor-tags__kind", {
+              text: scopeLabel(strings, String(tag.scope))
+            }));
+          }
+          if (store.isReserved(tag)) {
+            row.append(element("p", "quizgeist-editor-tags__hint", {
+              text: editorString(
+                strings,
+                "tag:reserved:hint",
+                "Fragen mit \u201ENeu\u201C zeigen bei einer falschen Antwort einen ermutigenden Hinweis."
+              )
+            }));
+          }
+          list.append(row);
+          inputs.push(input);
+          if (store.focusTagId === tag.id) {
+            store.focusTagId = 0;
+            window.requestAnimationFrame(() => input.focus());
+          }
+        });
+        group.append(list);
+        block.append(group);
       });
+    }
+    const quickLabelId = `quizgeist-tag-new-${questionId}`;
+    const quickKindId = `quizgeist-tag-new-kind-${questionId}`;
+    const quickInput = element("input", "quizgeist-input", {
+      id: quickLabelId,
+      maxlength: MAX_LABEL2,
+      type: "text"
     });
-    block.append(save);
+    const quickKind = kindSelect(strings, quickKindId);
+    const quickButton = button(
+      editorString(strings, "tag:action:add", "Merkmal anlegen"),
+      "quizgeist-button quizgeist-button--secondary"
+    );
+    quickButton.dataset.action = "create-tag";
+    const createQuick = () => {
+      const label = quickInput.value.trim();
+      if (label === "") {
+        quickInput.focus();
+        return;
+      }
+      quickButton.disabled = true;
+      const ticked = inputs.filter((entry) => entry.checked).map((entry) => Number(entry.value));
+      void store.createTag(label, quickKind.value, "activity").then((result) => {
+        onMessage(result.message, result.ok);
+        if (result.ok && result.tagId) {
+          store.setDraft(rootId, [...ticked, result.tagId]);
+          store.focusTagId = result.tagId;
+          onStoreChanged();
+        }
+      }).catch(() => onMessage(store.genericError().message, false)).finally(() => {
+        quickButton.disabled = false;
+      });
+    };
+    quickButton.addEventListener("click", createQuick);
+    quickInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        createQuick();
+      }
+    });
+    const quickFields = element("div", "quizgeist-editor-tags__quick-fields");
+    quickFields.append(
+      labelled(
+        quickLabelId,
+        editorString(strings, "tag:field:new", "Neues Merkmal"),
+        quickInput,
+        "quizgeist-editor-tags__quick-field quizgeist-editor-tags__quick-field--wide"
+      ),
+      labelled(
+        quickKindId,
+        editorString(strings, "tag:field:kind", "Art"),
+        quickKind,
+        "quizgeist-editor-tags__quick-field"
+      ),
+      quickButton
+    );
+    const quick = element("div", "quizgeist-editor-tags__quick");
+    quick.append(
+      quickFields,
+      element("p", "quizgeist-field__hint", {
+        text: editorString(
+          strings,
+          "tag:quick:hint",
+          "Neue Merkmale gelten zun\xE4chst nur f\xFCr diese Aktivit\xE4t."
+        )
+      })
+    );
+    block.append(quick);
+    const actions = element("div", "quizgeist-editor-tags__actions");
+    if (available.length) {
+      const save = button(
+        editorString(strings, "tag:action:save", "Merkmale speichern"),
+        "quizgeist-button quizgeist-button--primary"
+      );
+      save.dataset.action = "save-tags";
+      save.addEventListener("click", () => {
+        const chosen = inputs.filter((input) => input.checked).map((input) => Number(input.value));
+        save.disabled = true;
+        void store.saveForQuestion(questionId, chosen).then((result) => {
+          onMessage(result.message, result.ok);
+        }).catch(() => {
+          onMessage(store.genericError().message, false);
+        }).finally(() => {
+          save.disabled = false;
+        });
+      });
+      actions.append(save);
+    }
+    const manage = button(
+      editorString(strings, "tag:manage:open", "Merkmale verwalten"),
+      "quizgeist-button quizgeist-button--quiet",
+      () => openTagManager(store, strings, onMessage, onStoreChanged)
+    );
+    manage.dataset.action = "manage-tags";
+    actions.append(manage);
+    block.append(actions);
     return block;
+  }
+  function openTagManager(store, strings, onMessage, onStoreChanged) {
+    const t = (key, fallback) => editorString(strings, key, fallback);
+    const { body, dialog, footer } = openDialog(
+      t("tag:manage:title", "Merkmale dieser Aktivit\xE4t"),
+      t("tag:manage:close", "Schlie\xDFen"),
+      "quizgeist-tag-manager"
+    );
+    const state = { confirmId: 0, editingId: 0, status: "", statusError: false };
+    const status = element("p", "quizgeist-tag-manager__status", {
+      "aria-live": "polite",
+      role: "status"
+    });
+    footer.append(button(
+      t("tag:manage:close", "Schlie\xDFen"),
+      "quizgeist-button quizgeist-button--secondary",
+      () => closeDialog(dialog)
+    ));
+    let render = () => void 0;
+    const run = (work, trigger, after = () => void 0) => {
+      trigger.disabled = true;
+      void work().then((result) => {
+        state.status = result.message;
+        state.statusError = !result.ok;
+        onMessage(result.message, result.ok);
+        if (result.ok) {
+          after();
+          onStoreChanged();
+        }
+      }).catch(() => {
+        const failure = store.genericError();
+        state.status = failure.message;
+        state.statusError = true;
+        onMessage(failure.message, false);
+      }).finally(() => {
+        if (dialog.isConnected) {
+          render();
+        }
+      });
+    };
+    const renderEditing = (tag, item) => {
+      const labelId = `quizgeist-tag-rename-${tag.id}`;
+      const refId = `quizgeist-tag-rename-ref-${tag.id}`;
+      const labelInput = element("input", "quizgeist-input", {
+        id: labelId,
+        maxlength: MAX_LABEL2,
+        type: "text",
+        value: tag.label
+      });
+      const refInput = element("input", "quizgeist-input", {
+        id: refId,
+        maxlength: MAX_EXTERNALREF,
+        type: "text",
+        value: tag.externalRef || ""
+      });
+      const fields = element("div", "quizgeist-tag-manager__fields");
+      fields.append(labelled(
+        labelId,
+        t("tag:field:label", "Bezeichnung"),
+        labelInput,
+        "quizgeist-tag-manager__field"
+      ));
+      if (tag.kind === "competence") {
+        fields.append(labelled(
+          refId,
+          t("tag:field:externalref", "Fundstelle"),
+          refInput,
+          "quizgeist-tag-manager__field"
+        ));
+      }
+      const save = button(
+        t("tag:action:savename", "Speichern"),
+        "quizgeist-button quizgeist-button--primary"
+      );
+      save.addEventListener("click", () => run(
+        () => store.renameTag(tag, labelInput.value, refInput.value),
+        save,
+        () => {
+          state.editingId = 0;
+        }
+      ));
+      labelInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          save.click();
+        }
+      });
+      const cancel = button(
+        t("tag:action:cancel", "Abbrechen"),
+        "quizgeist-button quizgeist-button--quiet",
+        () => {
+          state.editingId = 0;
+          render();
+        }
+      );
+      const buttons = element("div", "quizgeist-tag-manager__buttons");
+      buttons.append(save, cancel);
+      item.append(fields, buttons);
+      window.requestAnimationFrame(() => labelInput.focus());
+    };
+    const renderConfirm = (tag, item) => {
+      const confirm = button(
+        t("tag:action:confirmdelete", "Endg\xFCltig l\xF6schen"),
+        "quizgeist-button quizgeist-button--danger-quiet"
+      );
+      confirm.dataset.action = "confirm-delete-tag";
+      confirm.addEventListener("click", () => run(
+        () => store.deleteTag(tag),
+        confirm,
+        () => {
+          state.confirmId = 0;
+        }
+      ));
+      const cancel = button(
+        t("tag:action:cancel", "Abbrechen"),
+        "quizgeist-button quizgeist-button--quiet",
+        () => {
+          state.confirmId = 0;
+          render();
+        }
+      );
+      const buttons = element("div", "quizgeist-tag-manager__buttons");
+      buttons.append(confirm, cancel);
+      item.append(
+        element("p", "quizgeist-tag-manager__confirm", {
+          text: withValue(
+            tag.scope === "course" ? t("tag:delete:confirmcourse", "Merkmal \u201E{$a}\u201C f\xFCr den ganzen Kurs l\xF6schen?") : t("tag:delete:confirm", "Merkmal \u201E{$a}\u201C l\xF6schen?"),
+            tag.label
+          )
+        }),
+        buttons
+      );
+      window.requestAnimationFrame(() => cancel.focus());
+    };
+    const renderTag = (tag) => {
+      const item = element("li", "quizgeist-tag-manager__item");
+      item.dataset.tagId = String(tag.id);
+      const reserved = store.isReserved(tag);
+      const editable = !reserved && tag.scope !== "site";
+      if (editable && state.editingId === tag.id) {
+        renderEditing(tag, item);
+        return item;
+      }
+      const head = element("div", "quizgeist-tag-manager__head");
+      const meta = [
+        scopeLabel(strings, String(tag.scope)),
+        store.usageCount(tag.id) === 1 ? t("tag:usage:one", "1 Frage dieser Aktivit\xE4t") : withValue(t("tag:usage", "{$a} Fragen dieser Aktivit\xE4t"), store.usageCount(tag.id))
+      ];
+      if (tag.kind === "competence" && tag.externalRef) {
+        meta.push(`${t("tag:field:externalref", "Fundstelle")}: ${tag.externalRef}`);
+      }
+      head.append(
+        element("span", "quizgeist-tag-manager__label", { text: tag.label }),
+        element("span", "quizgeist-tag-manager__meta", { text: meta.join(" \xB7 ") })
+      );
+      item.append(head);
+      if (reserved) {
+        item.append(element("p", "quizgeist-field__hint", {
+          text: t(
+            "tag:reserved:hint",
+            "Fragen mit \u201ENeu\u201C zeigen bei einer falschen Antwort einen ermutigenden Hinweis."
+          )
+        }));
+        return item;
+      }
+      if (!editable) {
+        return item;
+      }
+      if (state.confirmId === tag.id) {
+        renderConfirm(tag, item);
+        return item;
+      }
+      const rename = button(
+        t("tag:action:rename", "Umbenennen"),
+        "quizgeist-button quizgeist-button--quiet",
+        () => {
+          state.editingId = tag.id;
+          state.confirmId = 0;
+          render();
+        }
+      );
+      rename.dataset.action = "rename-tag";
+      rename.setAttribute("aria-label", `${t("tag:action:rename", "Umbenennen")}: ${tag.label}`);
+      const remove = button(
+        t("tag:action:delete", "L\xF6schen"),
+        "quizgeist-button quizgeist-button--danger-quiet",
+        () => {
+          state.confirmId = tag.id;
+          state.editingId = 0;
+          render();
+        }
+      );
+      remove.dataset.action = "delete-tag";
+      remove.setAttribute("aria-label", `${t("tag:action:delete", "L\xF6schen")}: ${tag.label}`);
+      const buttons = element("div", "quizgeist-tag-manager__buttons");
+      buttons.append(rename, remove);
+      item.append(buttons);
+      return item;
+    };
+    const uid = Math.random().toString(36).slice(2, 8);
+    const renderCreateForm = () => {
+      const form = element("form", "quizgeist-tag-manager__create");
+      form.noValidate = true;
+      const labelId = `quizgeist-tag-create-${uid}`;
+      const kindId = `quizgeist-tag-create-kind-${uid}`;
+      const scopeId = `quizgeist-tag-create-scope-${uid}`;
+      const refId = `quizgeist-tag-create-ref-${uid}`;
+      const labelInput = element("input", "quizgeist-input", {
+        id: labelId,
+        maxlength: MAX_LABEL2,
+        type: "text"
+      });
+      const kind = kindSelect(strings, kindId);
+      const scope = element("select", "quizgeist-select", { id: scopeId });
+      CREATABLE_SCOPES.forEach((value) => {
+        scope.append(element("option", "", { text: scopeLabel(strings, value), value }));
+      });
+      const refInput = element("input", "quizgeist-input", {
+        id: refId,
+        maxlength: MAX_EXTERNALREF,
+        type: "text"
+      });
+      const refField = labelled(
+        refId,
+        t("tag:field:externalref", "Fundstelle"),
+        refInput,
+        "quizgeist-tag-manager__field"
+      );
+      refField.hidden = true;
+      kind.addEventListener("change", () => {
+        refField.hidden = kind.value !== "competence";
+      });
+      const submit = element("button", "quizgeist-button quizgeist-button--primary", {
+        text: t("tag:action:add", "Merkmal anlegen"),
+        type: "submit"
+      });
+      submit.dataset.action = "create-tag";
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (labelInput.value.trim() === "") {
+          labelInput.focus();
+          return;
+        }
+        run(
+          () => store.createTag(
+            labelInput.value,
+            kind.value,
+            scope.value,
+            refInput.value
+          ),
+          submit
+        );
+      });
+      const grid = element("div", "quizgeist-tag-manager__fields");
+      grid.append(
+        labelled(labelId, t("tag:field:label", "Bezeichnung"), labelInput, "quizgeist-tag-manager__field"),
+        labelled(kindId, t("tag:field:kind", "Art"), kind, "quizgeist-tag-manager__field"),
+        labelled(scopeId, t("tag:field:scope", "Gilt f\xFCr"), scope, "quizgeist-tag-manager__field"),
+        refField
+      );
+      form.append(
+        element("h3", "quizgeist-tag-manager__kind", { text: t("tag:field:new", "Neues Merkmal") }),
+        grid,
+        submit
+      );
+      return form;
+    };
+    render = () => {
+      const nodes = [
+        element("p", "quizgeist-tag-manager__intro", {
+          text: t(
+            "tag:manage:intro",
+            "Merkmale ordnen Fragen nach Thema, Aufgabenart oder Kompetenz."
+          )
+        })
+      ];
+      orderedKinds(store).forEach((kind) => {
+        const tags = sortedOfKind(store, kind);
+        const section = element("section", "quizgeist-tag-manager__section");
+        section.append(element("h3", "quizgeist-tag-manager__kind", {
+          text: kindLabel(strings, kind)
+        }));
+        if (!tags.length) {
+          section.append(element("p", "quizgeist-field__hint", {
+            text: t("tag:kind:empty", "Noch keine Merkmale dieser Art.")
+          }));
+        } else {
+          const list = element("ul", "quizgeist-tag-manager__list");
+          tags.forEach((tag) => list.append(renderTag(tag)));
+          section.append(list);
+        }
+        nodes.push(section);
+      });
+      nodes.push(renderCreateForm());
+      status.textContent = state.status;
+      status.dataset.error = state.statusError ? "true" : "false";
+      nodes.push(status);
+      body.replaceChildren(...nodes);
+    };
+    render();
   }
 
   // src/workshop/student-form.ts
@@ -2956,9 +3787,14 @@ var QuizgeistEditApp = (() => {
       __publicField(this, "formRenderer");
       /** U1 Tagging-Kern. Free of charge; hangs on no addon. */
       __publicField(this, "tagStore");
+      /** F5 Fehlkonzept-Etiketten; asks `features.reports` itself. */
+      __publicField(this, "misconceptionStore");
+      /** F7: submissions whose AI pre-check is on its way. */
+      __publicField(this, "peerChecksRunning", /* @__PURE__ */ new Set());
       this.api = new EditorApi(config);
       this.tts = new TtsPlayer(config);
       this.tagStore = new TagStore(this.api, config.strings);
+      this.misconceptionStore = new MisconceptionStore(this.api, config.features);
       this.view = config.initialView === "templates" ? "templates" : "editor";
       this.formRenderer = new QuestionFormRenderer(config, {
         isAiAvailable: () => this.aiConfig.available,
@@ -3216,6 +4052,7 @@ var QuizgeistEditApp = (() => {
       }
     }
     renderEditor() {
+      var _a, _b, _c, _d;
       const frame = element("section", "quizgeist-editor");
       frame.dataset.view = "editor";
       const customBackground = this.activity.background[0];
@@ -3240,7 +4077,8 @@ var QuizgeistEditApp = (() => {
             state,
             note
           ),
-          null
+          // F7: the advisory AI pre-check (AI addon, a new AI job).
+          ((_b = (_a = this.config.features) == null ? void 0 : _a.ai) == null ? void 0 : _b.installed) === true && ((_d = (_c = this.config.features) == null ? void 0 : _c.ai) == null ? void 0 : _d.canCreate) !== false ? (submissionId) => void this.runPeerCheck(submissionId) : null
         ));
       }
       const nextStep = this.renderNextStep();
@@ -3346,6 +4184,37 @@ var QuizgeistEditApp = (() => {
         );
       } catch (_error) {
         this.workshop = null;
+      }
+    }
+    /**
+     * F7: run the advisory AI pre-check of one learner question.
+     *
+     * The result is a hint stored next to the submission, never a decision:
+     * the server writes `aicheckjson` only. Without a reachable gateway the
+     * server answers with its rule-based check, labelled as such.
+     */
+    async runPeerCheck(submissionId) {
+      var _a, _b;
+      if (((_b = (_a = this.config.features) == null ? void 0 : _a.ai) == null ? void 0 : _b.installed) !== true || this.peerChecksRunning.has(submissionId)) {
+        return;
+      }
+      this.peerChecksRunning.add(submissionId);
+      this.showToast(this.s("workshop:aicheck:running", "Die KI-Vorpr\xFCfung l\xE4uft \u2026"));
+      try {
+        await this.api.post("ai_peer_check", { workshopId: submissionId });
+        await this.loadWorkshop();
+        this.render();
+        this.showToast(this.s(
+          "workshop:aicheck:done",
+          "Die KI-Vorpr\xFCfung ist fertig. Der Hinweis steht bei der Einreichung."
+        ));
+      } catch (error) {
+        this.showToast(
+          error instanceof Error && error.message !== "" ? error.message : this.s("workshop:aicheck:failed", "Die KI-Vorpr\xFCfung ist fehlgeschlagen."),
+          true
+        );
+      } finally {
+        this.peerChecksRunning.delete(submissionId);
       }
     }
     /**
@@ -3874,13 +4743,25 @@ var QuizgeistEditApp = (() => {
         createTtsControl(this.tts, this.ttsText(question2), this.config),
         this.formRenderer.render(question2)
       );
+      const misconceptions = renderMisconceptionEditor(
+        this.misconceptionStore,
+        this.config.strings,
+        question2,
+        this.questionDirtyVersions.has(question2.id),
+        (message, ok) => this.showToast(message, !ok)
+      );
+      if (misconceptions !== null) {
+        detail.append(misconceptions);
+      }
       if (this.tagStore.isLoaded()) {
         detail.append(renderTagPicker(
           this.tagStore,
           this.config.strings,
           question2.id,
           question2.rootid || question2.id,
-          (message) => this.announce(message)
+          // Visible feedback: the toast carries its own status/alert role.
+          (message, ok) => this.showToast(message, !ok),
+          () => this.render()
         ));
       }
       return detail;

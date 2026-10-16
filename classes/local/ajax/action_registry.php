@@ -218,6 +218,11 @@ final class action_registry {
             'handler' => question_tags_save_handler::class,
             'writes' => true,
         ],
+        'tag_delete' => [
+            'capability' => 'mod/quizgeist:manage',
+            'handler' => tag_delete_handler::class,
+            'writes' => true,
+        ],
     ];
 
     /**

@@ -183,12 +183,18 @@ $capabilities = [
     // Capability neben :play. Eine Schule, die Sprachaufnahmen nicht
     // wuenscht, entzieht genau dieses Recht und behaelt alles andere
     // (P11_PLAN.md 3/U3 und 4.0).
+    // 1.2.0-rc.5: Auch das Lehrkraft-Diktat im Fragen-Editor (F9) laeuft
+    // ueber diesen Kanal (clip_upload.php, purpose=dictation, zusaetzlich
+    // :manage). Ohne die beiden Lehrkraft-Archetypen blieb der Diktatknopf
+    // fuer jede Lehrkraft unsichtbar.
     'mod/quizgeist:recordaudio' => [
         'riskbitmask' => RISK_PERSONAL,
         'captype' => 'write',
         'contextlevel' => CONTEXT_MODULE,
         'archetypes' => [
             'student' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
         ],
         'clonepermissionsfrom' => 'mod/quizgeist:play',
     ],

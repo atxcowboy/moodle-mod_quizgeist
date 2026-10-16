@@ -751,5 +751,42 @@ function xmldb_quizgeist_upgrade(int $oldversion): bool {
         upgrade_mod_savepoint(true, 2026080109, 'quizgeist');
     }
 
+    if ($oldversion < 2026101600) {
+        // 1.2.0-rc.5 (a): Lehrkraft-Diktat. Moodle traegt neue Archetypen
+        // einer BESTEHENDEN Capability nicht nach; deshalb hier fuer jede
+        // Rolle mit Archetyp editingteacher/manager. Eine Rolle, fuer die
+        // die Schule schon etwas festgelegt hat (auch ein Verbot), bleibt
+        // unberuehrt.
+        $systemcontext = context_system::instance();
+        foreach (['editingteacher', 'manager'] as $archetype) {
+            foreach (get_archetype_roles($archetype) as $role) {
+                $decided = $DB->record_exists('role_capabilities', [
+                    'roleid' => (int)$role->id,
+                    'capability' => 'mod/quizgeist:recordaudio',
+                    'contextid' => (int)$systemcontext->id,
+                ]);
+                if (!$decided) {
+                    assign_capability(
+                        'mod/quizgeist:recordaudio',
+                        CAP_ALLOW,
+                        (int)$role->id,
+                        (int)$systemcontext->id
+                    );
+                }
+            }
+        }
+
+        // 1.2.0-rc.5 (b): "Fehlerfreundlich bei neuen Themen" wirkt ueber
+        // das reservierte Merkmal "Neu". Es wurde bisher nie angelegt; jede
+        // Aktivitaet mit eingeschaltetem Modus bekommt es jetzt.
+        $instances = $DB->get_recordset('quizgeist', ['friendlynew' => 1], 'id ASC', 'id, course, friendlynew');
+        foreach ($instances as $instance) {
+            \mod_quizgeist\local\tagging\tag_service::ensure_reserved_new_tag($instance);
+        }
+        $instances->close();
+
+        upgrade_mod_savepoint(true, 2026101600, 'quizgeist');
+    }
+
     return true;
 }
