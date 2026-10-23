@@ -29,6 +29,7 @@ import {
   type MisconceptionRow,
 } from './misconception-panel';
 import {CardScanPanel} from './card-scan';
+import {CardSeatPanel} from './card-seat';
 import {renderCardSetPanel} from './card-sets';
 import {liveString, type StringValues} from '../live/strings';
 import {createTtsControl, TtsPlayer} from '../live/tts';
@@ -89,6 +90,7 @@ export class HostApp {
    * 1–2 s poll cannot tear the camera down under the teacher's thumb.
    */
   private cardScan: CardScanPanel | null = null;
+  private cardSeat: CardSeatPanel | null = null;
   private readonly reconnectKey: string;
   private bootstrapController: AbortController | null = null;
   private clockOffsetMs = 0;
@@ -181,6 +183,8 @@ export class HostApp {
     }
     window.removeEventListener('online', this.handleOnline);
     this.destroyCardScan();
+    this.cardSeat?.destroy();
+    this.cardSeat = null;
     this.sound.destroy();
     this.tts.stop();
     this.stopRelay();
@@ -619,6 +623,8 @@ export class HostApp {
   private renderState(): void {
     const state = this.state;
     if (!state || !this.stage) {
+      this.cardSeat?.destroy();
+      this.cardSeat = null;
       this.renderSetup();
       return;
     }
@@ -632,6 +638,12 @@ export class HostApp {
       // live camera track that survives the question it belonged to is a
       // classroom pointed at a lens nobody is watching.
       this.destroyCardScan();
+    }
+    if (screen !== 'lobby') {
+      // rc.6: the roll call belongs to the lobby only; after the start the
+      // server refuses new seats anyway.
+      this.cardSeat?.destroy();
+      this.cardSeat = null;
     }
     switch (screen) {
       case 'lobby':
@@ -1260,6 +1272,11 @@ export class HostApp {
       }),
     );
     const actions = liveElement('div', 'quizgeist-host-controlbar__actions');
+    // rc.6: one button in the lobby; the name list opens as a dialog.
+    const cardSeat = this.cardSeatPanel(state);
+    if (cardSeat !== null) {
+      actions.append(cardSeat);
+    }
     actions.append(
       this.commandButton(
         'abort',
@@ -1531,6 +1548,35 @@ export class HostApp {
       this.cardScan.retarget(target);
     }
     return this.cardScan.element();
+  }
+
+  /**
+   * rc.6 „Ein Gerät, eine Klasse“: the lobby roll call for card holders
+   * without a device. Present only with the AI addon and the right to scan
+   * cards — the same conditions under which the host config carries sets.
+   */
+  private cardSeatPanel(state: HostState): HTMLElement | null {
+    const sets = this.config.cardSets;
+    if (this.config.features?.ai?.installed !== true
+        || !Array.isArray(sets)
+        || typeof this.config.cardsPrintUrl !== 'string'
+        || this.config.cardsPrintUrl === '') {
+      this.cardSeat?.destroy();
+      this.cardSeat = null;
+      return null;
+    }
+    if (this.cardSeat === null) {
+      this.cardSeat = new CardSeatPanel({
+        api: this.api,
+        canSeat: this.config.features?.ai?.canCreate !== false,
+        cardSets: sets,
+        cmid: this.config.cmid,
+        host: this.root,
+        onSeated: () => this.poller.kick(),
+        text: (key, fallback, values = {}) => this.text(key, fallback, values),
+      });
+    }
+    return this.cardSeat.update(state.sessionId, state.players);
   }
 
   /** Release the camera and any open poll of the card panel. */
@@ -2159,6 +2205,7 @@ export class HostApp {
       } else {
         setNodeText(tile, '.quizgeist-host-player__name', player.displayName);
         tile.classList.toggle('is-away', player.status === 'away');
+        this.markCardPlayer(tile, player);
       }
       ordered.push(tile);
       existing.delete(player.id);
@@ -2199,7 +2246,23 @@ export class HostApp {
         text: player.displayName,
       }),
     );
+    this.markCardPlayer(tile, player);
     return tile;
+  }
+
+  /** rc.6: a seat without a device carries a small, readable card mark. */
+  private markCardPlayer(tile: HTMLElement, player: LivePlayer): void {
+    const card = player.status === 'card';
+    tile.classList.toggle('is-card', card);
+    let badge = tile.querySelector<HTMLElement>('.quizgeist-host-player__card');
+    if (card && badge === null) {
+      badge = liveElement('span', 'quizgeist-host-player__card', {
+        text: this.text('cards:seat:badge', 'Karte'),
+      });
+      tile.append(badge);
+    } else if (!card && badge !== null) {
+      badge.remove();
+    }
   }
 
   private patchCurrentScreen(): void {
@@ -2227,6 +2290,8 @@ export class HostApp {
     if (playerGrid) {
       this.reconcilePlayers(playerGrid, state.players);
     }
+    // rc.6: the lobby is patched, not rebuilt — the card button follows here.
+    this.cardSeat?.update(state.sessionId, state.players);
     const aggregate = this.stage.querySelector<HTMLElement>('[data-live-aggregate-slot]');
     if (aggregate && state.question) {
       const source = state.aggregate

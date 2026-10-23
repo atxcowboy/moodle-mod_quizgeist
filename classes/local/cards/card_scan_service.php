@@ -262,6 +262,11 @@ final class card_scan_service {
             $card = $codemap[$code];
             $userid = $card->userid === null ? 0 : (int)$card->userid;
             $bookable = $userid > 0 && isset($players[$userid]);
+            // rc.7: the position comes from the printed letter ring
+            // (`ring`) or, on the fallback path, from the model (`model`).
+            // Anything else is treated as the model — the less trusted one —
+            // and a model reading is ALWAYS marked for review.
+            $source = ($entry['source'] ?? null) === 'ring' ? 'ring' : 'model';
             $accepted[] = [
                 'cardCode' => $code,
                 'userId' => $userid,
@@ -269,7 +274,8 @@ final class card_scan_service {
                 'confidence' => self::confidence($entry),
                 'box' => self::box($entry),
                 'bookable' => $bookable,
-                'source' => 'model',
+                'source' => $source,
+                'review' => $source === 'model' || !empty($entry['review']),
             ];
             if ($bookable) {
                 $recognised++;
@@ -424,6 +430,9 @@ final class card_scan_service {
                 )[0]
                 : $answerid;
             try {
+                // rc.6: the cards were held up when the photo arrived, not
+                // when the teacher pressed "apply". Measuring against the
+                // click put every timed question past its deadline.
                 live_submission_service::submit(
                     $quizgeist,
                     $context,
@@ -431,7 +440,9 @@ final class card_scan_service {
                     (int)$scan->sessionid,
                     (int)$scan->questionid,
                     (string)$scan->visit,
-                    ['choiceIds' => [$submitted]]
+                    ['choiceIds' => [$submitted]],
+                    null,
+                    (int)$scan->timecreated * 1000
                 );
                 $booked++;
             } catch (\Throwable $exception) {
@@ -535,6 +546,9 @@ final class card_scan_service {
                 'confidence' => (float)($entry['confidence'] ?? 0.0),
                 'bookable' => (bool)($entry['bookable'] ?? false),
                 'source' => (string)($entry['source'] ?? 'model'),
+                // Results stored before rc.7 carry no flag; they were all
+                // read by the model, so they need review.
+                'review' => (bool)($entry['review'] ?? true),
             ];
         }
 

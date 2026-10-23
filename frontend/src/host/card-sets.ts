@@ -297,7 +297,7 @@ export function renderCardSetPanel(context: CardSetPanelContext): HTMLElement | 
       liveElement('p', 'quizgeist-host-cardsets__intro', {
         text: text(
           'cards:sets:intro',
-          'Jede Person bekommt eine gedruckte Karte. Verbucht werden nur Karten von Personen, die dieser Session beigetreten sind.',
+          'Jede Person bekommt eine gedruckte Karte. Wer kein Gerät hat, nimmst du in der Lobby über die Namensliste auf; es zählt der Zeitpunkt des Fotos.',
         ),
       }),
     ];

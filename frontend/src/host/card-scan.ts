@@ -10,9 +10,11 @@ import {liveButton, liveElement} from '../live/dom';
  * 1. **The picture never leaves this device except once, upwards.** The
  *    preview is a local `ObjectURL`; the server never sends a class photograph
  *    back, and there is no URL that would let it. The picture is downscaled
- *    here to a 1600-pixel long edge before the single POST, so a modern phone
- *    camera does not spend twelve megabytes of a school's uplink on a picture
- *    the model reads better small.
+ *    here to a 3200-pixel long edge before the single POST. rc.7 doubled the
+ *    edge from 1600: on a photograph of a whole class the card codes were
+ *    3–4 pixels high and unreadable (measurement series 2026-10-16); the
+ *    model now only sees small code strips cut out on the server, so the
+ *    larger upload costs uplink, not GPU time.
  * 2. **Nothing is booked before the teacher says so.** Recognition produces a
  *    LIST, and the list is a proposal. Cards that were not recognised are
  *    sorted to the TOP, because the failure mode that matters is a learner who
@@ -22,7 +24,14 @@ import {liveButton, liveElement} from '../live/dom';
  */
 
 /** Longest edge of the uploaded picture, in pixels. */
-const MAX_EDGE = 1600;
+const MAX_EDGE = 3200;
+
+/**
+ * Resolution asked of the camera. Without it browsers open the stream at
+ * 640×480 or 1280×720, and no upload edge can recover pixels the frame never
+ * had. `ideal` never fails: a camera without 4K delivers its largest mode.
+ */
+const CAMERA_IDEAL = {width: 3840, height: 2160};
 
 /** JPEG quality of the downscaled upload. */
 const UPLOAD_QUALITY = 0.85;
@@ -48,6 +57,8 @@ export interface CardScanEntry {
   confidence: number;
   bookable: boolean;
   source: string;
+  /** rc.7: the card position was ambiguous or read by the model alone. */
+  review?: boolean;
 }
 
 export interface CardScanMissing {
@@ -441,6 +452,17 @@ export class CardScanPanel {
         'is-missing',
       ));
     }
+    // One sentence above the list says what the marks mean. When the
+    // position could not be read from the card picture at all, the model read
+    // the whole photograph, and then EVERY row is marked — the sentence says
+    // so instead of letting a column of marks speak for itself.
+    const marked = scan.entries.filter((entry) => entry.review !== false);
+    if (marked.length > 0) {
+      const byModel = scan.entries.some((entry) => entry.source === 'model');
+      shell.append(liveElement('p', 'quizgeist-cardconfirm__reviewnotice', {
+        text: this.text(byModel ? 'cards:scan:modelnotice' : 'cards:scan:reviewnotice', ''),
+      }));
+    }
     if (scan.entries.length > 0) {
       shell.append(this.renderGroup(
         this.text('cards:scan:recognisedheading', 'Erkannt'),
@@ -519,15 +541,18 @@ export class CardScanPanel {
     });
 
     row.append(label, name, select);
-    if (entry.confidence >= 0 && entry.source === 'model') {
-      row.append(liveElement('span', 'quizgeist-cardconfirm__confidence', {
-        text: this.text('cards:scan:confidence', '', {
-          a: Math.round(entry.confidence * 100),
-        }),
-      }));
-    } else {
+    // No percentage any more (rc.7): the model's "confidence" was the same
+    // for right and wrong letters, and the ring gap is not calibrated on real
+    // photographs. What the teacher gets is a plain mark where looking twice
+    // is worth it — a word in a frame, never colour alone.
+    if (entry.source === 'missing') {
       row.append(liveElement('span', 'quizgeist-cardconfirm__confidence', {
         text: this.text('cards:scan:notrecognised', 'nicht erkannt'),
+      }));
+    } else if (entry.review !== false) {
+      row.classList.add('is-review');
+      row.append(liveElement('span', 'quizgeist-cardconfirm__review', {
+        text: this.text('cards:scan:review', 'Antwort unsicher'),
       }));
     }
     if (!entry.bookable) {
@@ -550,7 +575,11 @@ export class CardScanPanel {
     try {
       this.stream = await media.getUserMedia({
         audio: false,
-        video: {facingMode: 'environment'},
+        video: {
+          facingMode: 'environment',
+          height: {ideal: CAMERA_IDEAL.height},
+          width: {ideal: CAMERA_IDEAL.width},
+        },
       });
     } catch (_error) {
       this.errorMessage = this.text('cards:scan:camerablocked', '');

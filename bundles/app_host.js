@@ -4554,7 +4554,8 @@ var QuizgeistHostApp = (() => {
   }
 
   // src/host/card-scan.ts
-  var MAX_EDGE = 1600;
+  var MAX_EDGE = 3200;
+  var CAMERA_IDEAL = { width: 3840, height: 2160 };
   var UPLOAD_QUALITY = 0.85;
   var POLL_INTERVAL_MS = 1500;
   var MAX_POLLS = 60;
@@ -4833,6 +4834,13 @@ var QuizgeistHostApp = (() => {
           "is-missing"
         ));
       }
+      const marked = scan.entries.filter((entry) => entry.review !== false);
+      if (marked.length > 0) {
+        const byModel = scan.entries.some((entry) => entry.source === "model");
+        shell.append(liveElement("p", "quizgeist-cardconfirm__reviewnotice", {
+          text: this.text(byModel ? "cards:scan:modelnotice" : "cards:scan:reviewnotice", "")
+        }));
+      }
       if (scan.entries.length > 0) {
         shell.append(this.renderGroup(
           this.text("cards:scan:recognisedheading", "Erkannt"),
@@ -4903,15 +4911,14 @@ var QuizgeistHostApp = (() => {
         this.corrections.set(entry.cardCode, select.value);
       });
       row.append(label, name, select);
-      if (entry.confidence >= 0 && entry.source === "model") {
-        row.append(liveElement("span", "quizgeist-cardconfirm__confidence", {
-          text: this.text("cards:scan:confidence", "", {
-            a: Math.round(entry.confidence * 100)
-          })
-        }));
-      } else {
+      if (entry.source === "missing") {
         row.append(liveElement("span", "quizgeist-cardconfirm__confidence", {
           text: this.text("cards:scan:notrecognised", "nicht erkannt")
+        }));
+      } else if (entry.review !== false) {
+        row.classList.add("is-review");
+        row.append(liveElement("span", "quizgeist-cardconfirm__review", {
+          text: this.text("cards:scan:review", "Antwort unsicher")
         }));
       }
       if (!entry.bookable) {
@@ -4933,7 +4940,11 @@ var QuizgeistHostApp = (() => {
       try {
         this.stream = await media.getUserMedia({
           audio: false,
-          video: { facingMode: "environment" }
+          video: {
+            facingMode: "environment",
+            height: { ideal: CAMERA_IDEAL.height },
+            width: { ideal: CAMERA_IDEAL.width }
+          }
         });
       } catch (_error) {
         this.errorMessage = this.text("cards:scan:camerablocked", "");
@@ -5120,6 +5131,419 @@ var QuizgeistHostApp = (() => {
       this.phase = "idle";
       this.errorMessage = message;
       this.render();
+    }
+  };
+
+  // src/host/card-seat.ts
+  function normaliseRoster(raw) {
+    if (typeof raw !== "object" || raw === null) {
+      return null;
+    }
+    const value2 = raw;
+    const holders = Array.isArray(value2.holders) ? value2.holders : [];
+    const blocked = value2.blocked === "freeteams" || value2.blocked === "started" ? value2.blocked : "none";
+    return {
+      blocked,
+      cardSetId: Number(value2.cardSetId) || 0,
+      holders: holders.filter((entry) => typeof entry === "object" && entry !== null).map((entry) => ({
+        available: entry.available === true,
+        cardCode: String(entry.cardCode || ""),
+        name: String(entry.name || ""),
+        state: entry.state === "card" || entry.state === "device" ? entry.state : "none",
+        userId: Number(entry.userId) || 0
+      })).filter((entry) => entry.userId > 0),
+      reserveCount: Math.max(0, Number(value2.reserveCount) || 0),
+      sessionId: Number(value2.sessionId) || 0
+    };
+  }
+  var CardSeatPanel = class {
+    constructor(context) {
+      this.context = context;
+      __publicField(this, "trigger");
+      __publicField(this, "dialog", null);
+      __publicField(this, "body", null);
+      __publicField(this, "busy", false);
+      __publicField(this, "cardSetId", 0);
+      __publicField(this, "cardCount", 0);
+      __publicField(this, "checked", /* @__PURE__ */ new Set());
+      __publicField(this, "error", false);
+      __publicField(this, "roster", null);
+      __publicField(this, "sessionId", 0);
+      __publicField(this, "status", "");
+      var _a;
+      this.cardSetId = ((_a = context.cardSets[0]) == null ? void 0 : _a.id) || 0;
+      this.trigger = liveButton(
+        this.text("cards:seat:open", "Antwortkarten ohne Ger\xE4t"),
+        "quizgeist-host-button quizgeist-host-button--secondary quizgeist-host-cardseat-open",
+        { "aria-haspopup": "dialog", "data-live-cardseat-open": true }
+      );
+      this.trigger.addEventListener("click", () => this.open());
+    }
+    /**
+     * Follow the lobby: session and the number of card seats already taken.
+     * The open dialog is NOT rebuilt here, so a tick is never reset by a
+     * learner who happens to join from a device meanwhile.
+     */
+    update(sessionId, players) {
+      this.cardCount = players.filter((player) => player.status === "card").length;
+      if (sessionId !== this.sessionId) {
+        this.sessionId = sessionId;
+        this.close();
+        this.roster = null;
+        this.checked.clear();
+        this.status = "";
+        this.error = false;
+      }
+      this.trigger.textContent = this.cardCount > 0 ? this.text("cards:seat:summary", "Antwortkarten: {$a} ohne Ger\xE4t", { a: this.cardCount }) : this.text("cards:seat:open", "Antwortkarten ohne Ger\xE4t");
+      return this.trigger;
+    }
+    /** Leaving the lobby takes the dialog (and the class list) with it. */
+    destroy() {
+      this.close();
+    }
+    text(key, fallback, values = {}) {
+      return this.context.text(key, fallback, values);
+    }
+    open() {
+      if (this.dialog !== null) {
+        return;
+      }
+      const titleId = `quizgeist-cardseat-title-${this.context.cmid}`;
+      const dialog = liveElement("dialog", "quizgeist-host-dialog quizgeist-host-cardseat", {
+        "aria-modal": "true",
+        "data-live-cardseat": true
+      });
+      dialog.setAttribute("aria-labelledby", titleId);
+      const head = liveElement("div", "quizgeist-host-cardseat__head");
+      const close = liveButton(
+        this.text("cards:seat:close", "Schlie\xDFen"),
+        "quizgeist-host-button quizgeist-host-button--secondary",
+        { "data-live-cardseat-close": true }
+      );
+      close.addEventListener("click", () => this.close());
+      head.append(
+        liveElement("h2", "quizgeist-host-dialog__title", {
+          id: titleId,
+          text: this.text("cards:seat:title", "Ohne Ger\xE4te mitspielen: Antwortkarten")
+        }),
+        close
+      );
+      const body2 = liveElement("div", "quizgeist-host-cardseat__body");
+      dialog.append(head, body2);
+      dialog.addEventListener("cancel", (event) => {
+        event.preventDefault();
+        this.close();
+      });
+      this.dialog = dialog;
+      this.body = body2;
+      this.context.host.append(dialog);
+      try {
+        dialog.showModal();
+      } catch (_error) {
+        dialog.setAttribute("open", "");
+      }
+      this.roster = null;
+      this.status = "";
+      this.error = false;
+      void this.load();
+    }
+    close() {
+      const dialog = this.dialog;
+      if (dialog === null) {
+        return;
+      }
+      this.dialog = null;
+      this.body = null;
+      if (dialog.open) {
+        dialog.close();
+      }
+      dialog.remove();
+      if (this.trigger.isConnected) {
+        this.trigger.focus();
+      }
+    }
+    async load() {
+      if (this.sessionId <= 0 || this.cardSetId <= 0) {
+        this.render();
+        return;
+      }
+      this.busy = true;
+      this.status = this.text("cards:seat:loading", "Die Namensliste wird geladen \u2026");
+      this.error = false;
+      this.render();
+      try {
+        const result = await this.context.api.post("cardset_roster", {
+          cardSetId: this.cardSetId,
+          sessionId: this.sessionId
+        });
+        this.applyRoster(normaliseRoster(result.roster), true);
+        this.status = "";
+      } catch (error) {
+        this.roster = null;
+        this.error = true;
+        this.status = error instanceof Error && error.message !== "" ? error.message : this.text("cards:seat:loaderror", "Die Namensliste konnte nicht geladen werden.");
+      } finally {
+        this.busy = false;
+        this.render();
+      }
+    }
+    /**
+     * Take a roster from the server. While nobody of the set is seated, every
+     * available holder starts ticked — the teacher only unticks the absent.
+     * Afterwards the ticks mirror what the server holds.
+     */
+    applyRoster(roster, initial) {
+      this.roster = roster;
+      this.checked.clear();
+      if (roster === null) {
+        return;
+      }
+      const anySeated = roster.holders.some((holder) => holder.state === "card");
+      roster.holders.forEach((holder) => {
+        if (holder.state === "device" || holder.state === "card" || initial && !anySeated && holder.available) {
+          this.checked.add(holder.userId);
+        }
+      });
+    }
+    async seat() {
+      var _a, _b;
+      const roster = this.roster;
+      if (roster === null || this.busy) {
+        return;
+      }
+      this.busy = true;
+      this.render();
+      const userIds = roster.holders.filter((holder) => holder.available && holder.state !== "device" && this.checked.has(holder.userId)).map((holder) => holder.userId);
+      try {
+        const result = await this.context.api.post("cardset_seat", {
+          cardSetId: roster.cardSetId,
+          sessionId: this.sessionId,
+          userIds
+        });
+        const names = new Map(roster.holders.map((holder) => [holder.userId, holder.name]));
+        this.applyRoster(normaliseRoster(result.roster), false);
+        const lines = [this.text("cards:seat:done", "{$a->seated} aufgenommen, {$a->removed} wieder entfernt.", {
+          removed: Number(result.removed) || 0,
+          seated: Number(result.seated) || 0
+        })];
+        (Array.isArray(result.refused) ? result.refused : []).forEach((refusal) => {
+          const name = names.get(Number(refusal.userId)) || "";
+          lines.push(refusal.code === "not_enrolled" ? this.text("cards:seat:refused:notenrolled", "{$a} ist nicht mehr in diesem Kurs eingeschrieben und wurde nicht aufgenommen.", { a: name }) : this.text("cards:seat:refused:unavailable", "Das Konto von {$a} ist gesperrt oder gel\xF6scht und wurde nicht aufgenommen.", { a: name }));
+        });
+        this.status = lines.join(" ");
+        this.error = false;
+        this.context.onSeated();
+      } catch (error) {
+        this.error = true;
+        this.status = error instanceof Error && error.message !== "" ? error.message : this.text("cards:seat:error", "Die Namensliste konnte nicht gespeichert werden.");
+      } finally {
+        this.busy = false;
+        this.render();
+        (_b = (_a = this.body) == null ? void 0 : _a.querySelector(".quizgeist-host-cardseat__status")) == null ? void 0 : _b.focus();
+      }
+    }
+    renderSetPicker() {
+      if (this.context.cardSets.length < 2) {
+        return null;
+      }
+      const id = `quizgeist-cardseat-set-${this.context.cmid}`;
+      const wrapper = liveElement("div", "quizgeist-host-cardseat__field");
+      const select = liveElement("select", "quizgeist-host-select", { id });
+      this.context.cardSets.forEach((set) => {
+        const option = liveElement("option", "", { text: set.name, value: String(set.id) });
+        option.selected = set.id === this.cardSetId;
+        select.append(option);
+      });
+      select.disabled = this.busy;
+      select.addEventListener("change", () => {
+        this.cardSetId = Number(select.value) || 0;
+        this.roster = null;
+        this.status = "";
+        void this.load();
+      });
+      wrapper.append(
+        liveElement("label", "quizgeist-host-field__label", { for: id, text: this.text("cards:scan:setlabel", "Kartensatz") }),
+        select
+      );
+      return wrapper;
+    }
+    renderHolder(holder) {
+      const item = liveElement("li", "quizgeist-host-cardseat__holder");
+      item.dataset.holderState = holder.available ? holder.state : "unavailable";
+      const id = `quizgeist-cardseat-${this.context.cmid}-${holder.userId}`;
+      const box = liveElement("input", "quizgeist-host-cardseat__check", { id, type: "checkbox" });
+      box.dataset.liveCardseatUser = String(holder.userId);
+      box.checked = holder.available && this.checked.has(holder.userId);
+      box.disabled = this.busy || !holder.available || holder.state === "device";
+      box.addEventListener("change", () => {
+        if (box.checked) {
+          this.checked.add(holder.userId);
+        } else {
+          this.checked.delete(holder.userId);
+        }
+        this.renderCount();
+      });
+      const label = liveElement("label", "quizgeist-host-cardseat__label", { for: id });
+      label.append(
+        liveElement("span", "quizgeist-host-cardseat__name", { text: holder.name }),
+        liveElement("span", "quizgeist-host-cardseat__code", { text: holder.cardCode })
+      );
+      let note = "";
+      if (!holder.available) {
+        note = this.text("cards:seat:state:unavailable", "nicht mehr in diesem Kurs");
+      } else if (holder.state === "device") {
+        note = this.text("cards:seat:state:device", "spielt mit eigenem Ger\xE4t");
+      } else if (holder.state === "card") {
+        note = this.text("cards:seat:state:card", "aufgenommen");
+      }
+      if (note !== "") {
+        label.append(liveElement("span", "quizgeist-host-cardseat__note", { text: note }));
+      }
+      item.append(box, label);
+      return item;
+    }
+    countText() {
+      var _a;
+      const holders = ((_a = this.roster) == null ? void 0 : _a.holders.filter((holder) => holder.available && holder.state !== "device")) || [];
+      const ticked = holders.filter((holder) => this.checked.has(holder.userId)).length;
+      return this.text("cards:seat:count", "{$a->checked} von {$a->total} angehakt", {
+        checked: ticked,
+        total: holders.length
+      });
+    }
+    renderCount() {
+      var _a;
+      const count = (_a = this.body) == null ? void 0 : _a.querySelector("[data-live-cardseat-count]");
+      if (count) {
+        count.textContent = this.countText();
+      }
+    }
+    renderList(roster) {
+      const nodes = [];
+      if (roster.blocked === "freeteams") {
+        nodes.push(liveElement("p", "quizgeist-host-cardseat__locked", {
+          text: this.text(
+            "cards:seat:freeteams",
+            "Bei frei gew\xE4hlten Teams w\xE4hlt jede Person ihr Team am eigenen Ger\xE4t. F\xFCr Antwortkarten ohne Ger\xE4t lege die Session mit Moodle-Gruppen als Teams an."
+          )
+        }));
+        return nodes;
+      }
+      const list = liveElement("ul", "quizgeist-host-cardseat__list");
+      roster.holders.forEach((holder) => list.append(this.renderHolder(holder)));
+      nodes.push(list);
+      if (roster.reserveCount > 0) {
+        nodes.push(liveElement("p", "quizgeist-host-cardseat__hint", {
+          text: this.text("cards:seat:reserve", "{$a} Reservekarten tragen keinen Namen und z\xE4hlen nicht.", { a: roster.reserveCount })
+        }));
+      }
+      const actions = liveElement("div", "quizgeist-host-cardseat__actions");
+      const all = liveButton(
+        this.text("cards:seat:all", "Alle anhaken"),
+        "quizgeist-host-button quizgeist-host-button--secondary"
+      );
+      all.disabled = this.busy;
+      all.addEventListener("click", () => {
+        roster.holders.forEach((holder) => {
+          if (holder.available) {
+            this.checked.add(holder.userId);
+          }
+        });
+        this.render();
+      });
+      const none = liveButton(
+        this.text("cards:seat:none", "Alle abhaken"),
+        "quizgeist-host-button quizgeist-host-button--secondary"
+      );
+      none.disabled = this.busy;
+      none.addEventListener("click", () => {
+        roster.holders.forEach((holder) => {
+          if (holder.state !== "device") {
+            this.checked.delete(holder.userId);
+          }
+        });
+        this.render();
+      });
+      const apply = liveButton(
+        this.text("cards:seat:apply", "Angehakte aufnehmen"),
+        "quizgeist-host-button quizgeist-host-button--primary",
+        { "data-live-cardseat-apply": true }
+      );
+      apply.disabled = this.busy || !this.context.canSeat;
+      apply.addEventListener("click", () => {
+        void this.seat();
+      });
+      actions.append(
+        liveElement("span", "quizgeist-host-cardseat__count", {
+          "data-live-cardseat-count": true,
+          text: this.countText()
+        }),
+        all,
+        none,
+        apply
+      );
+      nodes.push(actions);
+      return nodes;
+    }
+    render() {
+      const body2 = this.body;
+      if (body2 === null) {
+        return;
+      }
+      const nodes = [
+        liveElement("p", "quizgeist-host-cardseat__intro", {
+          text: this.text(
+            "cards:seat:intro",
+            "Wer kein eigenes Ger\xE4t hat, antwortet mit der gedruckten Karte. Hake ab, wer heute fehlt, und nimm die anderen auf. Danach kannst du auch ohne einen einzigen Ger\xE4tebeitritt starten."
+          )
+        }),
+        liveElement("p", "quizgeist-host-cardseat__hint", {
+          text: this.text(
+            "cards:seat:privacy",
+            "Solange dieses Fenster offen ist, steht die Liste auch auf dem Beamer. Schlie\xDFe es nach dem Aufnehmen."
+          )
+        })
+      ];
+      if (!this.context.canSeat) {
+        nodes.push(liveElement("p", "quizgeist-host-cardseat__locked", {
+          text: this.text("cards:error:scanlocked", "F\xFCr den Karten-Modus fehlt eine g\xFCltige Lizenz des KI-Pakets.")
+        }));
+      }
+      if (this.context.cardSets.length === 0) {
+        nodes.push(liveElement("p", "quizgeist-host-cardseat__locked", {
+          text: this.text(
+            "cards:scan:noset",
+            "F\xFCr diese Aktivit\xE4t ist noch kein Kartensatz angelegt. Du legst ihn vor dem Spielstart im Startbildschirm unter \u201EAntwortkarten\u201C an."
+          )
+        }));
+      } else {
+        const picker = this.renderSetPicker();
+        if (picker !== null) {
+          nodes.push(picker);
+        }
+        if (this.roster !== null) {
+          nodes.push(...this.renderList(this.roster));
+        } else if (!this.busy) {
+          const retry = liveButton(
+            this.text("cards:seat:load", "Namensliste laden"),
+            "quizgeist-host-button quizgeist-host-button--secondary"
+          );
+          retry.addEventListener("click", () => {
+            void this.load();
+          });
+          nodes.push(retry);
+        }
+      }
+      const status = liveElement("p", "quizgeist-host-cardseat__status", {
+        "aria-live": "polite",
+        role: this.error ? "alert" : "status",
+        tabindex: -1,
+        text: this.status
+      });
+      status.dataset.error = this.error ? "true" : "false";
+      status.hidden = this.status === "";
+      nodes.push(status);
+      body2.replaceChildren(...nodes);
     }
   };
 
@@ -5357,7 +5781,7 @@ var QuizgeistHostApp = (() => {
         liveElement("p", "quizgeist-host-cardsets__intro", {
           text: text2(
             "cards:sets:intro",
-            "Jede Person bekommt eine gedruckte Karte. Verbucht werden nur Karten von Personen, die dieser Session beigetreten sind."
+            "Jede Person bekommt eine gedruckte Karte. Wer kein Ger\xE4t hat, nimmst du in der Lobby \xFCber die Namensliste auf; es z\xE4hlt der Zeitpunkt des Fotos."
           )
         })
       ];
@@ -6253,6 +6677,7 @@ var QuizgeistHostApp = (() => {
        * 1–2 s poll cannot tear the camera down under the teacher's thumb.
        */
       __publicField(this, "cardScan", null);
+      __publicField(this, "cardSeat", null);
       __publicField(this, "reconnectKey");
       __publicField(this, "bootstrapController", null);
       __publicField(this, "clockOffsetMs", 0);
@@ -6335,7 +6760,7 @@ var QuizgeistHostApp = (() => {
       await this.bootstrap();
     }
     destroy() {
-      var _a, _b, _c;
+      var _a, _b, _c, _d;
       this.destroyed = true;
       (_a = this.stageMode) == null ? void 0 : _a.detach();
       void ((_b = this.stageMode) == null ? void 0 : _b.leave());
@@ -6352,6 +6777,8 @@ var QuizgeistHostApp = (() => {
       }
       window.removeEventListener("online", this.handleOnline);
       this.destroyCardScan();
+      (_d = this.cardSeat) == null ? void 0 : _d.destroy();
+      this.cardSeat = null;
       this.sound.destroy();
       this.tts.stop();
       this.stopRelay();
@@ -6704,8 +7131,11 @@ var QuizgeistHostApp = (() => {
       return state.phase;
     }
     renderState() {
+      var _a, _b;
       const state = this.state;
       if (!state || !this.stage) {
+        (_a = this.cardSeat) == null ? void 0 : _a.destroy();
+        this.cardSeat = null;
         this.renderSetup();
         return;
       }
@@ -6716,6 +7146,10 @@ var QuizgeistHostApp = (() => {
       this.renderToolbarNavigation(screen);
       if (screen !== "question") {
         this.destroyCardScan();
+      }
+      if (screen !== "lobby") {
+        (_b = this.cardSeat) == null ? void 0 : _b.destroy();
+        this.cardSeat = null;
       }
       switch (screen) {
         case "lobby":
@@ -7305,6 +7739,10 @@ var QuizgeistHostApp = (() => {
         })
       );
       const actions = liveElement("div", "quizgeist-host-controlbar__actions");
+      const cardSeat = this.cardSeatPanel(state);
+      if (cardSeat !== null) {
+        actions.append(cardSeat);
+      }
       actions.append(
         this.commandButton(
           "abort",
@@ -7548,6 +7986,32 @@ var QuizgeistHostApp = (() => {
         this.cardScan.retarget(target);
       }
       return this.cardScan.element();
+    }
+    /**
+     * rc.6 „Ein Gerät, eine Klasse“: the lobby roll call for card holders
+     * without a device. Present only with the AI addon and the right to scan
+     * cards — the same conditions under which the host config carries sets.
+     */
+    cardSeatPanel(state) {
+      var _a, _b, _c, _d, _e;
+      const sets = this.config.cardSets;
+      if (((_b = (_a = this.config.features) == null ? void 0 : _a.ai) == null ? void 0 : _b.installed) !== true || !Array.isArray(sets) || typeof this.config.cardsPrintUrl !== "string" || this.config.cardsPrintUrl === "") {
+        (_c = this.cardSeat) == null ? void 0 : _c.destroy();
+        this.cardSeat = null;
+        return null;
+      }
+      if (this.cardSeat === null) {
+        this.cardSeat = new CardSeatPanel({
+          api: this.api,
+          canSeat: ((_e = (_d = this.config.features) == null ? void 0 : _d.ai) == null ? void 0 : _e.canCreate) !== false,
+          cardSets: sets,
+          cmid: this.config.cmid,
+          host: this.root,
+          onSeated: () => this.poller.kick(),
+          text: (key, fallback, values = {}) => this.text(key, fallback, values)
+        });
+      }
+      return this.cardSeat.update(state.sessionId, state.players);
     }
     /** Release the camera and any open poll of the card panel. */
     destroyCardScan() {
@@ -8134,6 +8598,7 @@ var QuizgeistHostApp = (() => {
         } else {
           setNodeText(tile, ".quizgeist-host-player__name", player.displayName);
           tile.classList.toggle("is-away", player.status === "away");
+          this.markCardPlayer(tile, player);
         }
         ordered.push(tile);
         existing.delete(player.id);
@@ -8166,10 +8631,25 @@ var QuizgeistHostApp = (() => {
           text: player.displayName
         })
       );
+      this.markCardPlayer(tile, player);
       return tile;
     }
+    /** rc.6: a seat without a device carries a small, readable card mark. */
+    markCardPlayer(tile, player) {
+      const card = player.status === "card";
+      tile.classList.toggle("is-card", card);
+      let badge = tile.querySelector(".quizgeist-host-player__card");
+      if (card && badge === null) {
+        badge = liveElement("span", "quizgeist-host-player__card", {
+          text: this.text("cards:seat:badge", "Karte")
+        });
+        tile.append(badge);
+      } else if (!card && badge !== null) {
+        badge.remove();
+      }
+    }
     patchCurrentScreen() {
-      var _a;
+      var _a, _b;
       const state = this.state;
       if (!state || !this.stage) {
         return;
@@ -8194,6 +8674,7 @@ var QuizgeistHostApp = (() => {
       if (playerGrid) {
         this.reconcilePlayers(playerGrid, state.players);
       }
+      (_a = this.cardSeat) == null ? void 0 : _a.update(state.sessionId, state.players);
       const aggregate = this.stage.querySelector("[data-live-aggregate-slot]");
       if (aggregate && state.question) {
         const source = state.aggregate || (state.phase === "reveal" ? state.distribution : null);
@@ -8222,7 +8703,7 @@ var QuizgeistHostApp = (() => {
       const brainstormGrouping = this.stage.querySelector(
         "[data-live-brainstorm-grouping]"
       );
-      if (brainstormGrouping && ((_a = state.question) == null ? void 0 : _a.qtype) === "brainstorm" && state.interactionStage === "group") {
+      if (brainstormGrouping && ((_b = state.question) == null ? void 0 : _b.qtype) === "brainstorm" && state.interactionStage === "group") {
         const renderedIdeaIds = Array.from(
           brainstormGrouping.querySelectorAll(
             "[data-live-brainstorm-idea-assignment]"

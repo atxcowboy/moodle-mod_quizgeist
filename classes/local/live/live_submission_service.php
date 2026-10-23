@@ -21,6 +21,15 @@ final class live_submission_service {
     /**
      * Insert one standard or repeatable player interaction.
      *
+     * `$answeredatms` is server-internal and never read from a request: the
+     * card path (card_scan_service::confirm) passes the moment the class
+     * photograph arrived, because that photograph — not the later click on
+     * "apply" — is when the cards were held up. Deadline and response time
+     * are then measured against the photo; a photo after the deadline is
+     * still refused.
+     *
+     * @param string|null $submissionkey Retry idempotency key.
+     * @param int|null $answeredatms Server-stamped answer moment in ms, or null for now.
      * @return array Lean acknowledgement.
      */
     public static function submit(
@@ -31,7 +40,8 @@ final class live_submission_service {
         int $questionid,
         string $questiontoken,
         array $rawanswer,
-        ?string $submissionkey = null
+        ?string $submissionkey = null,
+        ?int $answeredatms = null
     ): array {
         global $DB;
 
@@ -66,7 +76,11 @@ final class live_submission_service {
                     state_projector::player_state($session, $context, $player)
                 );
             }
-            $nowms = self::now_ms();
+            $nowms = self::answer_moment(
+                self::now_ms(),
+                $answeredatms,
+                (int)$state['phaseStartedAtMs']
+            );
             if ($nowms < (int)$state['phaseStartedAtMs']) {
                 throw new live_domain_exception(
                     'question_not_open',
@@ -288,6 +302,29 @@ final class live_submission_service {
                 'live:error:submissionlimit'
             );
         }
+    }
+
+    /**
+     * Resolve the moment an answer counts as given.
+     *
+     * Without a stamp it is now. A stamp is never later than now, and the
+     * scan clock has second resolution: a photo stamped in the second in
+     * which the question opened counts as taken at the opening rather than
+     * up to 999 ms before it.
+     *
+     * @param int $nowms Server time.
+     * @param int|null $answeredatms Server-stamped moment, or null.
+     * @param int $openedatms Opening of the current phase.
+     * @return int
+     */
+    public static function answer_moment(int $nowms, ?int $answeredatms, int $openedatms): int {
+        if ($answeredatms === null) {
+            return $nowms;
+        }
+        $moment = $answeredatms < $openedatms && $answeredatms + 999 >= $openedatms
+            ? $openedatms
+            : $answeredatms;
+        return min($nowms, $moment);
     }
 
     private static function now_ms(): int {

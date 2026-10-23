@@ -10185,6 +10185,31 @@ textarea.quizgeist-workshop-input {
   word-break: break-word;
 }
 
+/* rc.7: "Antwort unsicher" ist ein Wort im Rahmen plus doppelte Zeilenlinie,
+   nie Farbe allein (einfarbig gedruckt lesbar wie "Nicht erkannt"). */
+.quizgeist-cardconfirm__row.is-review {
+  border-width: 2px;
+}
+
+.quizgeist-cardconfirm__review {
+  border: 1px solid currentColor;
+  border-radius: var(--mq-radius-md);
+  font-size: var(--mq-text-sm);
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 0 var(--mq-space-2);
+  word-break: break-word;
+}
+
+.quizgeist-cardconfirm__reviewnotice {
+  font-size: var(--mq-text-sm);
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .quizgeist-cardconfirm__actions {
   display: flex;
   flex-wrap: wrap;
@@ -10474,4 +10499,173 @@ textarea.quizgeist-workshop-input {
   display: grid;
   gap: var(--mq-space-1);
   min-width: 0;
+}
+
+/* ------------------------------------------------------------------------
+ * 1.2.0-rc.6 — „Ein Gerät, eine Klasse“: Namensliste der Lobby als Dialog
+ *
+ * Die Lobby ist eine Bühne fester Höhe; eine aufklappende Liste darin hat
+ * Spielcode und Steuerleiste überlagert. Deshalb trägt die Lobby nur einen
+ * Knopf, und die Liste öffnet sich als modaler Dialog mit eigenem Scroll-
+ * bereich. Auf einem gespiegelten Beamer steht die Klassenliste nur, solange
+ * der Dialog offen ist.
+ * ---------------------------------------------------------------------- */
+
+.quizgeist-host-dialog.quizgeist-host-cardseat {
+  display: grid;
+  gap: var(--mq-space-3);
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: min(46rem, calc(100vh - 2rem));
+  max-width: min(56rem, calc(100vw - 2rem));
+  overflow: hidden;
+  padding: var(--mq-space-4);
+  text-align: start;
+}
+
+.quizgeist-host-dialog.quizgeist-host-cardseat:not([open]) {
+  display: none;
+}
+
+.quizgeist-host-cardseat__head {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mq-space-2);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.quizgeist-host-cardseat__head .quizgeist-host-dialog__title {
+  flex: 1 1 16rem;
+  font-size: var(--mq-text-lg);
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-host-cardseat__body {
+  display: grid;
+  gap: var(--mq-space-2);
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.quizgeist-host-cardseat__intro,
+.quizgeist-host-cardseat__hint,
+.quizgeist-host-cardseat__locked,
+.quizgeist-host-cardseat__status {
+  font-size: var(--mq-text-sm);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-host-cardseat__hint {
+  color: var(--mq-color-ink-700);
+}
+
+.quizgeist-host-cardseat__locked {
+  font-weight: 700;
+}
+
+.quizgeist-host-cardseat__status[hidden] {
+  display: none;
+}
+
+.quizgeist-host-cardseat__status[data-error="true"] {
+  color: var(--mq-color-alarm-700);
+  font-weight: 700;
+}
+
+.quizgeist-host-cardseat__field {
+  display: grid;
+  gap: var(--mq-space-1);
+  max-width: 24rem;
+  min-width: 0;
+}
+
+.quizgeist-host-cardseat__list {
+  display: grid;
+  gap: var(--mq-space-1);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quizgeist-host-cardseat__holder {
+  align-items: center;
+  border: 1px solid var(--mq-color-border);
+  border-radius: var(--mq-radius-sm);
+  display: flex;
+  gap: var(--mq-space-2);
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: var(--mq-space-1) var(--mq-space-2);
+}
+
+.quizgeist-host-cardseat__holder[data-holder-state="unavailable"],
+.quizgeist-host-cardseat__holder[data-holder-state="device"] {
+  opacity: .7;
+}
+
+.quizgeist-host-cardseat__check {
+  flex: 0 0 auto;
+  height: 1.25rem;
+  width: 1.25rem;
+}
+
+.quizgeist-host-cardseat__label {
+  cursor: pointer;
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 0 var(--mq-space-2);
+  min-width: 0;
+}
+
+.quizgeist-host-cardseat__name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.quizgeist-host-cardseat__code {
+  color: var(--mq-color-ink-700);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: var(--mq-text-xs);
+  letter-spacing: .08em;
+}
+
+.quizgeist-host-cardseat__note {
+  color: var(--mq-color-ink-700);
+  flex-basis: 100%;
+  font-size: var(--mq-text-xs);
+}
+
+.quizgeist-host-cardseat__actions {
+  align-items: center;
+  background: var(--mq-color-surface);
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mq-space-2);
+  padding-top: var(--mq-space-1);
+  position: sticky;
+}
+
+.quizgeist-host-cardseat__count {
+  color: var(--mq-color-ink-700);
+  flex: 1 1 10rem;
+  font-size: var(--mq-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.quizgeist-host-player__card {
+  border: 1px solid var(--mq-color-border);
+  border-radius: var(--mq-radius-sm);
+  color: var(--mq-color-ink-700);
+  font-size: var(--mq-text-xs);
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 1px var(--mq-space-1);
+  white-space: nowrap;
 }

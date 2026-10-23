@@ -35,6 +35,15 @@ final class session_service {
     public const MAX_REVIEW_BLOCK = 10;
 
     /**
+     * Player status of a card holder seated by the teacher (F11a, rc.6).
+     *
+     * A device join writes `joined`; nothing filters on the status, so a card
+     * seat plays, scores and ranks like any other player. The value only
+     * marks which rows a lobby tick may withdraw again.
+     */
+    public const PLAYER_STATUS_CARD = 'card';
+
+    /**
      * Initial host data, optionally restoring one explicit session URL.
      *
      * @param \stdClass $quizgeist Activity.
@@ -783,6 +792,199 @@ final class session_service {
             $context,
             $player
         )];
+    }
+
+    /**
+     * Seat printed-card holders as players without a device (F11a, rc.6).
+     *
+     * "Ein Gerät, eine Klasse": a learner who answers by holding up a printed
+     * card never joins with a device, yet the card path books through the
+     * ordinary pipeline, which needs a player row. The teacher therefore
+     * marks who is present in the lobby, and exactly those holders become
+     * players with status `card`. Presence is the teacher's decision — it is
+     * never inferred from a photograph.
+     *
+     * Runs under the same session lock as join_session(), so a learner who
+     * joins from a device at the same moment cannot collide with the seat on
+     * the (session, user) index. A device player is never removed by an
+     * unticked box; only a card seat without answers can be withdrawn.
+     *
+     * @param \stdClass $quizgeist Activity.
+     * @param \context_module $context Context.
+     * @param \stdClass $host Acting host.
+     * @param int $sessionid Session.
+     * @param int[] $holderids Every holder of the chosen card set, read by the server.
+     * @param int[] $chosenids Holders the teacher marked as present.
+     * @return array{seated:int,removed:int,refused:array<int,array{userId:int,code:string}>}
+     */
+    public static function seat_card_players(
+        \stdClass $quizgeist,
+        \context_module $context,
+        \stdClass $host,
+        int $sessionid,
+        array $holderids,
+        array $chosenids
+    ): array {
+        global $DB;
+
+        $holders = [];
+        foreach ($holderids as $holderid) {
+            if ((int)$holderid > 0) {
+                $holders[(int)$holderid] = true;
+            }
+        }
+        $chosen = [];
+        foreach ($chosenids as $chosenid) {
+            // A box can only tick a holder of this set; anything else is out
+            // of scope, never a seat for a stranger.
+            if (isset($holders[(int)$chosenid])) {
+                $chosen[(int)$chosenid] = true;
+            }
+        }
+
+        $seated = 0;
+        $removed = 0;
+        $refused = [];
+        $changed = false;
+        $transaction = \mod_quizgeist\local\transaction_scope::begin();
+        try {
+            $session = session_repository::session(
+                (int)$quizgeist->id,
+                $sessionid,
+                true
+            );
+            self::require_host($session, $context, (int)$host->id);
+            if ((string)$session->status !== 'lobby') {
+                throw new live_domain_exception(
+                    'round_started',
+                    'live:error:roundstarted'
+                );
+            }
+            $settings = state_projector::settings($session);
+            if (self::card_seating_blocked($settings)) {
+                throw new live_domain_exception(
+                    'card_free_teams',
+                    'cards:seat:freeteams'
+                );
+            }
+            $existing = [];
+            foreach (session_repository::players($sessionid) as $player) {
+                $existing[(int)$player->userid] = $player;
+            }
+            $now = time();
+            foreach (array_keys($holders) as $userid) {
+                $player = $existing[$userid] ?? null;
+                if (!isset($chosen[$userid])) {
+                    if ($player !== null
+                            && (string)$player->status === self::PLAYER_STATUS_CARD
+                            && !$DB->record_exists('quizgeist_answers', [
+                                'sessionid' => $sessionid,
+                                'playerid' => (int)$player->id,
+                            ])) {
+                        $DB->delete_records('quizgeist_players', ['id' => (int)$player->id]);
+                        $removed++;
+                        $changed = true;
+                    }
+                    continue;
+                }
+                if ($player !== null) {
+                    // Already playing — by device or by card. Idempotent.
+                    continue;
+                }
+                $user = \core_user::get_user($userid);
+                if (!$user || !empty($user->deleted) || !empty($user->suspended)) {
+                    $refused[] = ['userId' => $userid, 'code' => 'user_unavailable'];
+                    continue;
+                }
+                // The card was printed weeks ago; the enrolment is read now.
+                if (!is_enrolled($context, $user, 'mod/quizgeist:play', true)) {
+                    $refused[] = ['userId' => $userid, 'code' => 'not_enrolled'];
+                    continue;
+                }
+                session_settings::assert_player_eligible(
+                    (string)$session->mode,
+                    $context,
+                    $user
+                );
+                // A card holder cannot type a name of their own. `custom`
+                // therefore falls back to the generated alias, so the class
+                // list does not reach the beamer unasked.
+                $displayname = self::display_name(
+                    $settings['nameMode'] === 'real' ? 'real' : 'generated',
+                    null,
+                    $sessionid,
+                    $user
+                );
+                $team = team_service::assignment($settings['team'], $user, null);
+                $DB->insert_record('quizgeist_players', (object)[
+                    'sessionid' => $sessionid,
+                    'userid' => $userid,
+                    'displayname' => $displayname,
+                    'groupid' => $team['groupid'],
+                    'teamname' => $team['teamname'],
+                    'avatarkey' => reward_service::selection($userid, null, null),
+                    'score' => 0,
+                    'streak' => 0,
+                    'status' => self::PLAYER_STATUS_CARD,
+                    'timejoined' => $now,
+                    'lastseen' => $now,
+                    'timemodified' => $now,
+                ]);
+                $seated++;
+                $changed = true;
+            }
+            if ($changed) {
+                $update = (object)[
+                    'id' => $sessionid,
+                    'stateversion' => (int)$session->stateversion + 1,
+                    'timemodified' => $now,
+                ];
+                $DB->update_record('quizgeist_sessions', $update);
+                $session = (object)array_merge((array)$session, (array)$update);
+            }
+            $transaction->allow_commit();
+        } catch (\Throwable $exception) {
+            $transaction->rollback($exception);
+        }
+        if ($changed) {
+            self::notify_state_change($session);
+        }
+        return ['seated' => $seated, 'removed' => $removed, 'refused' => $refused];
+    }
+
+    /**
+     * Whether card holders cannot be seated under these session settings.
+     *
+     * Free teams are chosen by the learner on the device. A holder without a
+     * device cannot choose, and quietly placing them into a team would be a
+     * decision nobody made — so the seat is refused with a sentence instead.
+     *
+     * @param array $settings Canonical session settings.
+     * @return bool
+     */
+    public static function card_seating_blocked(array $settings): bool {
+        $team = $settings['team'] ?? null;
+        return is_array($team) && ($team['source'] ?? null) !== 'groups';
+    }
+
+    /**
+     * Load one session of this activity and require its host.
+     *
+     * @param \stdClass $quizgeist Activity.
+     * @param \context_module $context Context.
+     * @param int $userid Acting user.
+     * @param int $sessionid Session.
+     * @return \stdClass Session row.
+     */
+    public static function hosted_session(
+        \stdClass $quizgeist,
+        \context_module $context,
+        int $userid,
+        int $sessionid
+    ): \stdClass {
+        $session = session_repository::session((int)$quizgeist->id, $sessionid);
+        self::require_host($session, $context, $userid);
+        return $session;
     }
 
     /**

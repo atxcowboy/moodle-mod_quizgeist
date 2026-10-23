@@ -4,6 +4,82 @@ All notable, user-visible changes to Quizgeist are documented here. The
 changelog format follows [Keep a Changelog](https://keepachangelog.com/en/),
 and version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [1.2.0-rc.7] - 2026-10-17
+
+### Changed
+
+- Card scan: the answer letter is no longer read by the vision model. A
+  measurement series (every card in every rotation, four card sizes,
+  synthetic class photographs built from the real PDF sheet) showed the
+  model reading only 67 % of the letters right, with a strong bias towards
+  "A" and the same "confidence" for right and wrong answers; overall only
+  23 % of the cards came back right. The server now finds the cards on the
+  photograph itself (bright square islands at several brightness
+  thresholds) and reads the position from the printed letter ring, which is
+  identical on every card: a two-stage normalised cross-correlation (coarse
+  angle, then the glyphs) against a reference ring generated from the real
+  sheet (shipped with the AI add-on). After the change the same series
+  read 650 of 654 letters right (A–D, A–F, true/false, with and without
+  hands), and all four wrong ones were marked "Answer uncertain"; overall
+  64 % instead of 23 % of the cards came back right at 1600 px and 84 % at
+  3200 px. Printed sheets stay valid.
+- The model only reads the codes now, from ONE picture in which every
+  card's upright code copy is cut out, turned straight and numbered (new
+  strict contract, schema version 2). Unreadable codes stay on the
+  "not recognised" list.
+- Uploads are downscaled to a 3200-pixel long edge instead of 1600, and the
+  camera is opened with an ideal resolution of 3840×2160 (browsers otherwise
+  deliver 640×480 or 1280×720). On a whole class the codes were 3–4 pixels
+  high before; in the series the code rate for whole-class photographs rose
+  from 0 % to 98 %. The model never sees the large picture.
+- Fallback: without Imagick, or when no card is found, the rc.6 whole-photo
+  reading runs with a neutral contract example (the old example letter "A"
+  was the model's favourite wrong answer) and a description of the card;
+  every row it yields is marked for review.
+
+### Fixed
+
+- The confirmation screen no longer shows "Confidence 87 %". The model's
+  value was meaningless (right Ø 0.94, wrong Ø 0.95). Rows whose position
+  was ambiguous (ring gap below 0.02) or that came from the model are marked
+  "Answer uncertain" — a framed word, never colour alone — with one sentence
+  above the list explaining the mark.
+
+## [1.2.0-rc.6] - 2026-10-16
+
+### Added
+
+- "One device, one class": a class without learner devices can now play
+  with printed answer cards. The lobby shows a closed panel "Playing without
+  devices: answer cards" with the name list of a card set; the teacher
+  unticks whoever is absent and adds the others. They become players with
+  status `card` (no device), so the session can start without a single
+  device join, and card scans book their answers. Presence is the teacher's
+  decision; it is never inferred from a photograph. New AI add-on actions
+  `cardset_roster` (read) and `cardset_seat` (write, needs a valid AI
+  licence). The holders are read from the set on the server; the request
+  only names who is present. Enrolment is re-checked when adding, a card
+  seat can be withdrawn in the lobby, a device player never. With freely
+  chosen teams adding is refused with a sentence (learners choose their
+  team on the device); Moodle-group teams assign card players through their
+  group. In the name mode "custom" card players get a generated alias, so
+  the class list does not reach the projector unasked. The roster shows the
+  card code next to the name, because a site may show first names only.
+- Card players carry a small "Card" mark in the lobby player grid.
+
+### Changed
+
+- A card answer counts at the moment the class photograph arrived, not when
+  the teacher presses "Apply". Before, every timed question (default 20 s)
+  was usually over by the time recognition and checking were done, so
+  every line ended as "answer time had already run out", and the speed
+  points depended on the click. Deadline and response time are now
+  measured against the server-side upload time of the scan; a photograph
+  taken after the deadline is still refused. The stamp is an internal
+  parameter of the submission pipeline and cannot be set by a request.
+- The texts of the card mode no longer say that only people who joined the
+  session are booked; they explain the lobby name list instead.
+
 ## [1.2.0-rc.5] - 2026-10-16
 
 ### Added
